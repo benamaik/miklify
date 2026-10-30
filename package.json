@@ -1,7 +1,7 @@
 {
   "name": "miklify",
   "productName": "Miklify",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Miklify",
   "main": "main.js",
   "author": "benamaik",
@@ -12,7 +12,7 @@
     "icon": "node scripts/make-icon.js",
     "shortcut": "node scripts/make-shortcut.js",
     "get-fpcalc": "node scripts/get-fpcalc.js",
-    "dist": "electron-builder --win nsis portable"
+    "dist": "electron-builder --win nsis portable --publish never"
   },
   "dependencies": {
     "music-metadata": "^12.3.2"

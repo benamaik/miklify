@@ -38,7 +38,7 @@ npm run shortcut
 npm run dist
 ```
 
-В папке `dist/` появятся установщик `Miklify Setup 1.0.0.exe` и переносимая версия `Miklify 1.0.0.exe`. Другу достаточно отправить любой из этих двух файлов, Node.js ему не нужен.
+В папке `dist/` появятся установщик `Miklify Setup 1.0.1.exe` и переносимая версия `Miklify 1.0.1.exe`. Другу достаточно отправить любой из этих двух файлов, Node.js ему не нужен.
 
 > Если сборка падает с `Cannot create symbolic link` при распаковке `winCodeSign`, это значит, что Windows не даёт обычному пользователю создавать символические ссылки (они нужны только для macOS-файлов внутри архива). Есть два решения: запустить терминал от имени администратора или включить «Режим разработчика» в параметрах Windows. Третий вариант: переименовать уже распакованную папку в `%LOCALAPPDATA%\electron-builder\Cache\winCodeSign\` в `winCodeSign-2.6.0` и запустить сборку снова. Иконка лежит в `assets/icon.png`; пересоздать её можно командой `npm run icon`.
 
@@ -126,11 +126,11 @@ npm run dist
 Релиз собирается на GitHub Actions ([.github/workflows/release.yml](.github/workflows/release.yml)), когда в репозиторий приходит тег:
 
 ```bash
-git tag v1.0.0
+git tag v1.0.1
 ```
 
 ```bash
-git push origin v1.0.0
+git push origin v1.0.1
 ```
 
 Сборка скачает `fpcalc.exe`, запишет ключи из секретов в `src/config.js`, соберёт `.exe` и создаст релиз на GitHub. Секреты задаются в Settings → Secrets and variables → Actions: `ACOUSTID_KEY` и `JAMENDO_CLIENT_ID`. Без них сборка тоже пройдёт, просто эти функции будут просить ключ. Ключ YouTube в сборку намеренно не передаётся.
