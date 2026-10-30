@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ru" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; img-src 'self' file: data: https: http:; media-src 'self' file: https: http:; frame-src http://127.0.0.1:*; style-src 'self' 'unsafe-inline'; script-src 'self'">
+  <title>Miklify</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Анимированный фон -->
+  <canvas id="bg"></canvas>
+
+  <div class="app">
+    <aside class="sidebar panel">
+      <div class="brand"><img src="../assets/icon.png" alt=""><span>Miklify</span></div>
+      <nav id="nav">
+        <button data-go="home"></button>
+        <button data-go="search"></button>
+        <button data-go="online"></button>
+        <button data-go="library"></button>
+        <button data-go="artists"></button>
+        <button data-go="albums"></button>
+        <button data-go="playlists"></button>
+        <button data-go="settings"></button>
+      </nav>
+      <div class="side-title"><span>Плейлисты</span><button id="newPl" class="icon-btn" title="Новый плейлист"></button></div>
+      <div id="sidePl" class="side-pl"></div>
+      <div id="scanBox" class="scan hidden"></div>
+      <button class="legal-link" data-go="legal">Конфиденциальность и условия</button>
+    </aside>
+
+    <main class="main panel">
+      <header class="topbar">
+        <button id="back" class="icon-btn" title="Назад"></button>
+        <button id="fwd" class="icon-btn" title="Вперёд"></button>
+        <span class="spacer"></span>
+        <button id="btnSettings" class="icon-btn wide" title="Настройки"></button>
+      </header>
+      <div id="view" class="view"></div>
+    </main>
+
+    <footer class="player panel">
+      <div class="np">
+        <div id="npCover" class="cover sm"></div>
+        <div class="np-t"><b id="npTitle">Ничего не играет</b><span id="npArtist"></span></div>
+        <button id="npLike" class="icon-btn"></button>
+      </div>
+      <div class="ctrl">
+        <div class="btns">
+          <button id="bShuffle" class="icon-btn" title="Перемешать"></button>
+          <button id="bPrev" class="icon-btn" title="Предыдущий"></button>
+          <button id="bPlay" class="play-btn" title="Играть / Пауза"></button>
+          <button id="bNext" class="icon-btn" title="Следующий"></button>
+          <button id="bRepeat" class="icon-btn" title="Повтор"></button>
+        </div>
+        <div class="seek">
+          <span id="tCur">0:00</span>
+          <input id="seek" type="range" min="0" max="1000" value="0">
+          <span id="tDur">0:00</span>
+        </div>
+      </div>
+      <div class="extra">
+        <button id="bEq" class="icon-btn" title="Эквалайзер"></button>
+        <button id="bQueue" class="icon-btn" title="Очередь"></button>
+        <button id="bMute" class="icon-btn" title="Звук"></button>
+        <input id="vol" type="range" min="0" max="100" value="80">
+      </div>
+    </footer>
+  </div>
+
+  <!-- Видео YouTube: показывается, пока играет трек с YouTube (по правилам встраивания его нельзя прятать) -->
+  <div id="ytPanel" class="yt-panel hidden">
+    <iframe id="ytFrame" title="YouTube" allow="autoplay; encrypted-media; fullscreen"></iframe>
+    <!-- За эту полосу панель можно перетаскивать; двойной клик возвращает на место -->
+    <div class="yt-cap" id="ytCap" title="Потяните, чтобы переместить. Двойной клик — вернуть на место">
+      <span class="yt-grip"></span><span class="yt-name">YouTube</span><a data-act="openYt">Открыть на YouTube</a>
+    </div>
+  </div>
+
+  <div id="ctx" class="ctx hidden"></div>
+  <div id="modal" class="modal hidden"></div>
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="js/util.js"></script>
+  <script src="js/background.js"></script>
+  <script src="js/youtube.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/views.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

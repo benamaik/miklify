@@ -1,0 +1,66 @@
+{
+  "name": "miklify",
+  "productName": "Miklify",
+  "version": "1.0.0",
+  "description": "Miklify",
+  "main": "main.js",
+  "author": "benamaik",
+  "license": "MIT",
+  "scripts": {
+    "start": "node scripts/launch.js",
+    "dev": "electron .",
+    "icon": "node scripts/make-icon.js",
+    "shortcut": "node scripts/make-shortcut.js",
+    "get-fpcalc": "node scripts/get-fpcalc.js",
+    "dist": "electron-builder --win nsis portable"
+  },
+  "dependencies": {
+    "music-metadata": "^12.3.2"
+  },
+  "devDependencies": {
+    "electron": "^45.2.0",
+    "electron-builder": "^26.18.0",
+    "rcedit": "^5.0.2"
+  },
+  "build": {
+    "appId": "com.miklify.app",
+    "productName": "Miklify",
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "renderer/**/*",
+      "assets/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "bin",
+        "to": "bin",
+        "filter": [
+          "fpcalc.exe"
+        ]
+      }
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  },
+  "allowScripts": {
+    "electron-winstaller": false
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/benamaik/miklify.git"
+  },
+  "homepage": "https://github.com/benamaik/miklify",
+  "bugs": {
+    "url": "https://github.com/benamaik/miklify/issues"
+  }
+}

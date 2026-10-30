@@ -1,0 +1,44 @@
+# Сборка релиза для Windows: срабатывает на тег вида v1.0.0.
+# Ключи берутся из секретов репозитория (Settings → Secrets and variables → Actions) и попадают только в сборку.
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Скачать fpcalc
+        run: npm run get-fpcalc
+
+      # YOUTUBE_API_KEY сюда не передаётся: правила YouTube запрещают встраивать ключи в open source проекты.
+      # Пользователи вводят свой ключ во вкладке «Онлайн».
+      - name: Записать ключи
+        run: node scripts/write-config.js
+        env:
+          ACOUSTID_KEY: ${{ secrets.ACOUSTID_KEY }}
+          JAMENDO_CLIENT_ID: ${{ secrets.JAMENDO_CLIENT_ID }}
+
+      - name: Собрать
+        run: npm run dist
+
+      - name: Опубликовать релиз
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --generate-notes dist/*.exe
