@@ -824,6 +824,12 @@ async function boot() {
   syncSettings();
   renderSidebarPlaylists();
   S.set.ytBlocked = settings.ytBlocked || {};
+  // До исправления адреса плеера (127.0.0.1 → localhost) YouTube отказывал почти всей музыке, и в «недоступные»
+  // попадали рабочие песни. Один раз сбрасываем этот список, чтобы они снова появились в результатах.
+  if (settings.ytBlockedReset !== 1) {
+    S.set.ytBlocked = {};
+    saveSet({ ytBlocked: {}, ytBlockedReset: 1 });
+  }
   Player.init({
     getTrackFn: (id) => trackById(id), state: settings, onUseFn: rememberOnline, onDurationFn: onTrackDuration,
     isBlockedFn: isYtBlocked, onBlockedFn: markYtBlocked,

@@ -38,7 +38,7 @@ const Yt = (() => {
     if (started) return;
     started = true;
     const port = await api.ytPort();
-    frame.src = `http://127.0.0.1:${port}/player.html`;
+    frame.src = `http://localhost:${port}/player.html`; // именно localhost: YouTube отказывает страницам с адресом из цифр (127.0.0.1)
   }
 
   // ----- проверка доступности роликов -----
@@ -62,7 +62,7 @@ const Yt = (() => {
           resolve();
         }
       });
-      api.ytPort().then((port) => { probeFrame.src = `http://127.0.0.1:${port}/player.html`; }).catch(reject);
+      api.ytPort().then((port) => { probeFrame.src = `http://localhost:${port}/player.html`; }).catch(reject);
     });
     return probeReady;
   }
