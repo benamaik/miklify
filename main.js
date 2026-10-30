@@ -41,6 +41,7 @@ const settings = new Store(path.join(app.getPath('userData'), 'settings.json'), 
   youtubeKey: '',     // ключ YouTube Data API, введённый во вкладке «Онлайн»
   ytPos: null,        // положение панели с видео YouTube {x, y}; null — по умолчанию
   ytConsent: false,   // пользователь принял политику конфиденциальности и условия YouTube
+  ytBlocked: {},      // ролики, которые плеер YouTube отказался играть: videoId → {at, code}
   onlineTracks: {},   // онлайн-треки и станции, которые лежат в плейлистах/лайках/очереди
   radioFav: [],       // избранные радиостанции
 });
@@ -255,7 +256,7 @@ const jamendoKey = () => settings.data.jamendoKey || JAMENDO_CLIENT_ID;
 const youtubeKey = () => settings.data.youtubeKey || YOUTUBE_API_KEY;
 ipcMain.handle('online:status', () => ({ jamendo: !!jamendoKey(), youtube: !!youtubeKey() }));
 ipcMain.handle('youtube:search', (_e, q, region) => online.youtubeSearch(youtubeKey(), q, region));
-ipcMain.handle('youtube:refresh', (_e, ids) => online.youtubeRefresh(youtubeKey(), ids));
+ipcMain.handle('youtube:refresh', (_e, ids, region) => online.youtubeRefresh(youtubeKey(), ids, region));
 ipcMain.handle('yt:port', () => ytserver.start());
 ipcMain.handle('jamendo:search', (_e, q) => online.jamendoSearch(jamendoKey(), q));
 ipcMain.handle('radio:search', (_e, q) => online.radioSearch(q));

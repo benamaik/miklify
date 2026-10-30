@@ -234,6 +234,11 @@ h1, h2, h3 { margin: 0; }
   0%, 100% { background-size: 3px 30%, 3px 90%, 3px 55%; }
   50% { background-size: 3px 95%, 3px 35%, 3px 80%; }
 }
+/* Трек, который YouTube не даёт играть вне своего сайта */
+.row.unavail { opacity: .45; }
+.row.unavail .rtt b { text-decoration: line-through; text-decoration-thickness: 1px; }
+.row.unavail .pbtn { cursor: not-allowed; }
+.row.unavail .rtt::after { content: "недоступно на YouTube"; font: 10px var(--mono); letter-spacing: .06em; color: var(--fg3); margin-top: 2px; }
 .qrow { cursor: grab; }
 .qrow.drag { opacity: .35; }
 .qrow.over { box-shadow: 0 -1px 0 var(--fg); }

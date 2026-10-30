@@ -166,6 +166,31 @@ function youtubeTrack(item) {
   };
 }
 
+// Shorts в API отдельным признаком не помечены. Они почти всегда не длиннее минуты, а те, что до трёх минут,
+// подписаны #shorts в названии, описании или тегах. Песни короче минуты встречаются редко.
+const MAX_SHORT_SECONDS = 60;
+const SHORTS_MARK = /#shorts?\b/i;
+
+// Почему ролик нельзя (или не нужно) играть во встроенном плеере; null — можно.
+// Это предварительная проверка по данным API: окончательно блокировки выявляет сам плеер при запуске.
+function unusable(item, region, { shorts = true } = {}) {
+  const cd = item.contentDetails || {}, st = item.status || {}, sn = item.snippet || {};
+  if (st.embeddable === false) return 'embed';                                   // автор запретил встраивание
+  if (cd.contentRating?.ytRating === 'ytAgeRestricted') return 'age';            // с возрастным ограничением не встраивается
+  const rr = cd.regionRestriction;                                               // недоступно в стране пользователя
+  if (rr && region && ((rr.allowed && !rr.allowed.includes(region)) || rr.blocked?.includes(region))) return 'region';
+  if (sn.liveBroadcastContent === 'upcoming') return 'upcoming';                 // эфир ещё не начался
+  if (shorts && sn.liveBroadcastContent !== 'live') {
+    const sec = isoSeconds(cd.duration);
+    if (sec > 0 && sec <= MAX_SHORT_SECONDS) return 'short';
+    if (SHORTS_MARK.test(`${sn.title || ''} ${sn.description || ''}`)) return 'short';
+    if ((sn.tags || []).some((t) => /^#?shorts?$|youtube shorts/i.test(t))) return 'short';
+  }
+  return null;
+}
+
+const MAX_RESULTS = 30;
+
 // Поиск стоит 100 единиц квоты из 10 000 в день; «популярное» — всего 1
 async function youtubeSearch(key, q, region) {
   if (!key) throw new Error('NO_KEY');
@@ -174,31 +199,33 @@ async function youtubeSearch(key, q, region) {
   let ids = [];
   let videos;
   if (q) {
+    // Берём с запасом: часть роликов отсеется. videoSyndicated оставляет только те, что можно играть вне youtube.com
     const found = await ytApi(key, 'search', {
-      part: 'snippet', type: 'video', videoCategoryId: '10', videoEmbeddable: 'true', maxResults: '25', q,
+      part: 'snippet', type: 'video', videoCategoryId: '10', videoEmbeddable: 'true', videoSyndicated: 'true', maxResults: '45', q,
     });
     ids = found.items.map((i) => i.id?.videoId).filter(Boolean);
     if (!ids.length) return [];
     videos = await ytApi(key, 'videos', { part, id: ids.join(',') });
   } else {
-    videos = await ytApi(key, 'videos', { part, chart: 'mostPopular', videoCategoryId: '10', regionCode: region || 'US', maxResults: '25' });
+    videos = await ytApi(key, 'videos', { part, chart: 'mostPopular', videoCategoryId: '10', regionCode: region || 'US', maxResults: '50' });
   }
-  const items = videos.items.filter((i) => i.status?.embeddable !== false);
+  const items = videos.items.filter((i) => !unusable(i, region));
   if (ids.length) items.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
-  return items.map(youtubeTrack);
+  return items.slice(0, MAX_RESULTS).map(youtubeTrack);
 }
 
 // Обновить сохранённые данные роликов (1 единица квоты на 50 роликов).
 // missing — ролики, которых больше нет или которые больше нельзя встраивать.
-async function youtubeRefresh(key, videoIds) {
+async function youtubeRefresh(key, videoIds, region) {
   if (!key) throw new Error('NO_KEY');
   const tracks = [];
   for (let i = 0; i < videoIds.length; i += 50) {
     const v = await ytApi(key, 'videos', { part: 'snippet,contentDetails,status', id: videoIds.slice(i, i + 50).join(',') });
-    tracks.push(...v.items.filter((it) => it.status?.embeddable !== false).map(youtubeTrack));
+    // Шорты не проверяем: человек уже сам добавил ролик в плейлист или лайки
+    tracks.push(...v.items.filter((it) => !unusable(it, region, { shorts: false })).map(youtubeTrack));
   }
   const found = new Set(tracks.map((t) => t.videoId));
   return { tracks, missing: videoIds.filter((id) => !found.has(id)) };
 }
 
-module.exports = { radioSearch, radioClick, jamendoSearch, youtubeSearch, youtubeRefresh, download };
+module.exports = { radioSearch, radioClick, jamendoSearch, youtubeSearch, youtubeRefresh, download, unusable };

@@ -38,6 +38,35 @@ function rememberOnline(ids) {
   if (changed) saveSet({ onlineTracks: store });
 }
 
+// ----- ролики, которые YouTube не разрешает играть -----
+// Плеер YouTube сам сообщает об отказе (запрещено встраивание, ролик закрыт). Запоминаем это: такие треки
+// пропадают из результатов поиска, в списках выглядят приглушёнными, а очередь проходит мимо них.
+function isYtBlocked(t) {
+  const b = t && t.videoId && S.set.ytBlocked?.[t.videoId];
+  return !!b && Date.now() - b.at < YT_MAX_DAYS * DAY_MS;
+}
+
+function markYtBlocked(t, code) {
+  if (!t.videoId) return;
+  const blocked = S.set.ytBlocked || (S.set.ytBlocked = {});
+  blocked[t.videoId] = { at: Date.now(), code };
+  saveSet({ ytBlocked: blocked });
+  // списки: приглушаем строки на месте, чтобы не сбрасывать прокрутку
+  $$(`.row[data-id="${t.id}"]`).forEach((r) => r.classList.add('unavail'));
+  // поиск YouTube: убираем ролик из результатов
+  if (S.view.name === 'online' && S.onlineTab === 'yt') runOnlineSearch();
+}
+
+// Данные, которым больше 30 дней, не храним: через месяц ролик можно проверить заново
+function expireYtBlocked() {
+  const blocked = S.set.ytBlocked || {};
+  let changed = false;
+  for (const [id, b] of Object.entries(blocked)) {
+    if (Date.now() - b.at >= YT_MAX_DAYS * DAY_MS) { delete blocked[id]; changed = true; }
+  }
+  if (changed) saveSet({ ytBlocked: blocked });
+}
+
 // ----- данные YouTube: правила разрешают хранить их не дольше 30 дней -----
 const DAY_MS = 24 * 3600 * 1000;
 const YT_REFRESH_DAYS = 25; // обновляем заранее, чтобы успеть до срока
@@ -55,6 +84,7 @@ function removeYoutubeData(ids) {
 }
 
 async function refreshYoutubeData() {
+  expireYtBlocked();
   const store = S.set.onlineTracks || {};
   const now = Date.now();
   const all = Object.values(store).filter((t) => t.online === 'youtube');
@@ -69,7 +99,7 @@ async function refreshYoutubeData() {
   const keep = stale.filter((t) => used.has(t.id));
   if (keep.length) {
     try {
-      const res = await api.youtubeRefresh(keep.map((t) => t.videoId));
+      const res = await api.youtubeRefresh(keep.map((t) => t.videoId), ytRegion());
       for (const t of res.tracks) {
         const old = store['yt:' + t.videoId];
         store[t.id] = { ...t, duration: t.duration || old?.duration || 0 };
@@ -98,6 +128,7 @@ async function deleteYoutubeData() {
   if (!ok) return;
   const ids = Object.values(S.set.onlineTracks || {}).filter((t) => t.online === 'youtube').map((t) => t.id);
   delete S.oRes.yt;
+  saveSet({ ytBlocked: {} });
   removeYoutubeData(ids);
   renderSidebarPlaylists();
   UI.toast('Данные YouTube удалены');
@@ -512,6 +543,8 @@ function onNavClick(e) {
 // Тот же трек, что уже играет, не перезапускаем — только пауза/продолжить
 function playRow(row) {
   const i = S.listCtx.queue ? +row.dataset.qi : S.list.indexOf(row.dataset.id);
+  const t = trackById(row.dataset.id);
+  if (isYtBlocked(t)) { UI.toast(`YouTube не разрешает играть «${t.title}» вне своего сайта`); return; }
   const isCurrent = S.listCtx.queue ? i === Player.index : Player.current()?.id === row.dataset.id;
   if (isCurrent) { Player.toggle(); return; }
   if (S.listCtx.queue) Player.playIndex(i);
@@ -763,7 +796,11 @@ async function boot() {
   bindEvents();
   syncSettings();
   renderSidebarPlaylists();
-  Player.init({ getTrackFn: (id) => trackById(id), state: settings, onUseFn: rememberOnline, onDurationFn: onTrackDuration });
+  S.set.ytBlocked = settings.ytBlocked || {};
+  Player.init({
+    getTrackFn: (id) => trackById(id), state: settings, onUseFn: rememberOnline, onDurationFn: onTrackDuration,
+    isBlockedFn: isYtBlocked, onBlockedFn: markYtBlocked,
+  });
   updatePlayerBar();
   go('home');
 

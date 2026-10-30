@@ -19,7 +19,7 @@ contextBridge.exposeInMainWorld('api', {
   jamendoSearch: (q) => ipcRenderer.invoke('jamendo:search', q),
   radioSearch: (q) => ipcRenderer.invoke('radio:search', q),
   youtubeSearch: (q, region) => ipcRenderer.invoke('youtube:search', q, region),
-  youtubeRefresh: (ids) => ipcRenderer.invoke('youtube:refresh', ids),
+  youtubeRefresh: (ids, region) => ipcRenderer.invoke('youtube:refresh', ids, region),
   ytPort: () => ipcRenderer.invoke('yt:port'),
   radioClick: (uuid) => ipcRenderer.send('radio:click', uuid),
   download: (track) => ipcRenderer.invoke('online:download', track),

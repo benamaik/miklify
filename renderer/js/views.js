@@ -5,7 +5,8 @@ const sumDur = (ids) => ids.reduce((s, id) => s + (trackById(id)?.duration || 0)
 // ----- строительные блоки -----
 function rowHtml(t, i, o = {}) {
   const liked = S.likes.has(t.id);
-  const cls = o.queue ? 'row qrow' : 'row';
+  const unavail = isYtBlocked(t); // YouTube не даёт играть: строка приглушена
+  const cls = (o.queue ? 'row qrow' : 'row') + (unavail ? ' unavail' : '');
   const extra = o.queue ? ` data-qi="${i}" draggable="true"` : '';
   // У онлайн-треков нет локальных страниц исполнителя/альбома — показываем просто текст
   const artist = t.online ? `<span>${esc(t.artist)}</span>` : `<a data-go="artist" data-arg="${esc(t.artist)}">${esc(t.artist)}</a>`;
@@ -366,8 +367,10 @@ function onlineResults(tab, q, items, error) {
         · <a data-act="changeYoutubeKey">Сменить ключ</a></div>`;
     }
     if (error) return `<div class="empty-sm">Не удалось загрузить: ${esc(error)}</div>`;
+    // Ролики, которые плеер YouTube уже отказался играть, не показываем
+    const playable = items.filter((t) => !isYtBlocked(t));
     return `<h2 class="sec">${q ? 'Результаты' : 'Популярное сейчас'}</h2>`
-      + trackList(items.map((t) => t.id), { online: true, emptyText: `Ничего не найдено по запросу «${esc(q)}»` })
+      + trackList(playable.map((t) => t.id), { online: true, emptyText: `Ничего не найдено по запросу «${esc(q)}»` })
       + `<p class="attrib">Видео воспроизводится встроенным плеером YouTube (с рекламой, если она есть у ролика); эквалайзер на нём не действует. · <a data-act="changeYoutubeKey">Сменить ключ</a> · <a data-go="legal">Условия</a></p>`;
   }
   if (tab === 'music') {

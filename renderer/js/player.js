@@ -19,6 +19,8 @@ const Player = (() => {
   let getTrack = () => null; // подставляется из app.js: id -> трек
   let onUse = () => {};      // сообщает app.js, какие треки попали в очередь (чтобы запомнить онлайн-треки)
   let onDuration = () => {}; // сообщает app.js настоящую длительность трека, у которого её не было
+  let isBlocked = () => false; // app.js: известно ли, что YouTube не даёт играть этот трек
+  let onBlocked = () => {};    // app.js запоминает ролик, который плеер YouTube отказался играть
 
   // Плавное затухание при паузе и переключении
   const FADE_MS = 280;
@@ -154,6 +156,11 @@ const Player = (() => {
   function load(i, { autoplay = true, pos = 0 } = {}) {
     const t = getTrack(queue[i]);
     if (!t) return;
+    // Явный запуск трека, который YouTube не играет: не пытаемся и не ждём ошибки
+    if (autoplay && isBlocked(t)) {
+      UI.toast(`YouTube не разрешает играть «${t.title}» вне своего сайта`);
+      return;
+    }
     index = i;
     const audible = ytMode ? yt.playing : !audio.paused && !audio.ended;
     if (autoplay && audible) fadeOut(() => startTrack(t, autoplay, pos));
@@ -195,14 +202,17 @@ const Player = (() => {
 
   // Следующий индекс. В режиме перемешивания каждый трек играет один раз за круг;
   // когда все сыграны — возвращаем queue.length, то есть «очередь закончилась».
-  function pickNext() {
+  function pickNext(from = index) {
     if (shuffle && queue.length > 1) {
-      played.add(index);
+      played.add(from);
       const left = queue.map((_, i) => i).filter((i) => !played.has(i));
       return left.length ? left[Math.floor(Math.random() * left.length)] : queue.length;
     }
-    return index + 1;
+    return from + 1;
   }
+
+  // Трек очереди, который YouTube уже отказался играть
+  const blockedAt = (i) => isBlocked(getTrack(queue[i]));
 
   // Остановиться в начале текущего трека (дальше по очереди идти некуда)
   function stopAtStart(fade = false) {
@@ -238,10 +248,12 @@ const Player = (() => {
     current,
     energy,
 
-    init({ getTrackFn, state, onUseFn, onDurationFn }) {
+    init({ getTrackFn, state, onUseFn, onDurationFn, isBlockedFn, onBlockedFn }) {
       getTrack = getTrackFn;
       if (onUseFn) onUse = onUseFn;
       if (onDurationFn) onDuration = onDurationFn;
+      if (isBlockedFn) isBlocked = isBlockedFn;
+      if (onBlockedFn) onBlocked = onBlockedFn;
       shuffle = !!state.shuffle;
       repeat = state.repeat || 'off';
       audio.volume = state.volume ?? 0.8;
@@ -295,7 +307,10 @@ const Player = (() => {
         error(code) {
           if (!ytMode) return;
           const t = current();
-          const blocked = [101, 150, 153].includes(code);
+          // 100 — ролик удалён или закрыт, 101/150/153 — автор запретил встраивание. Запоминаем: в следующий раз
+          // плеер пропустит его сразу, а из результатов поиска он пропадёт.
+          const blocked = [100, 101, 150, 153].includes(code);
+          if (blocked && t) onBlocked(t, code);
           UI.toast(blocked ? `YouTube не разрешает играть «${t ? t.title : 'это видео'}» вне своего сайта`
             : `Видео недоступно: ${t ? t.title : ''}`);
           yt.playing = false;
@@ -321,7 +336,11 @@ const Player = (() => {
       onUse(ids);
       queue = [...ids];
       history = []; played.clear();
-      load(idx);
+      // Если выбранный трек YouTube не играет, начинаем со следующего доступного
+      let start = idx;
+      for (let g = 0; start < queue.length && blockedAt(start) && g < queue.length; g++) start++;
+      if (start >= queue.length) start = idx; // доступных нет — load() сам скажет об этом
+      load(start);
     },
     playIndex(i) { history.push(index); load(i); },
 
@@ -368,6 +387,8 @@ const Player = (() => {
       if (!queue.length) return;
       if (auto && repeat === 'one') { restart(true); return; }
       let n = pickNext();
+      // Пропускаем треки, которые YouTube не играет
+      for (let guard = 0; n < queue.length && blockedAt(n) && guard < queue.length; guard++) n = pickNext(n);
       if (n >= queue.length) {
         // Конец очереди: по кругу только при «повторять всё», иначе стоп — и при авто-переходе, и по кнопке
         if (repeat !== 'all') { stopAtStart(!auto); return; }
@@ -385,7 +406,12 @@ const Player = (() => {
       if (!hasPrev) { stopAtStart(true); return; }
       // Если трек играет дольше 3 секунд — сначала возвращаемся к его началу
       if (api_.currentTime > 3) { restart(false); return; }
-      const p = history.length ? history.pop() : (index > 0 ? index - 1 : queue.length - 1);
+      let p = history.length ? history.pop() : (index > 0 ? index - 1 : queue.length - 1);
+      // Назад тоже обходим недоступные треки; если до начала все такие — остаёмся на месте
+      for (let guard = 0; blockedAt(p) && guard < queue.length; guard++) {
+        p = history.length ? history.pop() : p - 1;
+        if (p < 0) { stopAtStart(true); return; }
+      }
       played.delete(p);
       load(p);
     },
