@@ -209,7 +209,9 @@ async function youtubeSearch(key, q, region) {
   } else {
     videos = await ytApi(key, 'videos', { part, chart: 'mostPopular', videoCategoryId: '10', regionCode: region || 'US', maxResults: '50' });
   }
-  const items = videos.items.filter((i) => !unusable(i, region));
+  // Страну пользователя мы знаем только приблизительно (по языку системы), поэтому по региону здесь не отсеиваем:
+  // недоступные в вашей стране ролики определяет плеер YouTube при проверке результатов.
+  const items = videos.items.filter((i) => !unusable(i));
   if (ids.length) items.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
   return items.slice(0, MAX_RESULTS).map(youtubeTrack);
 }
@@ -222,7 +224,7 @@ async function youtubeRefresh(key, videoIds, region) {
   for (let i = 0; i < videoIds.length; i += 50) {
     const v = await ytApi(key, 'videos', { part: 'snippet,contentDetails,status', id: videoIds.slice(i, i + 50).join(',') });
     // Шорты не проверяем: человек уже сам добавил ролик в плейлист или лайки
-    tracks.push(...v.items.filter((it) => !unusable(it, region, { shorts: false })).map(youtubeTrack));
+    tracks.push(...v.items.filter((it) => !unusable(it, null, { shorts: false })).map(youtubeTrack));
   }
   const found = new Set(tracks.map((t) => t.videoId));
   return { tracks, missing: videoIds.filter((id) => !found.has(id)) };

@@ -248,6 +248,9 @@ h1, h2, h3 { margin: 0; }
 .yt-panel { position: fixed; right: 18px; bottom: 100px; z-index: 40; width: 356px; background: var(--panel-solid); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; box-shadow: 0 12px 32px rgba(0,0,0,.45); animation: fadeIn .2s var(--ease); }
 .yt-panel iframe { display: block; width: 356px; height: 200px; border: 0; background: #000; }
 body.yt-on .view { padding-bottom: 250px; }
+.yt-probe { right: 28px; bottom: auto; top: 158px; z-index: 45; }
+.yt-cap-static { cursor: default; }
+.yt-probe .bar { margin: 0; height: 2px; border-radius: 0; }
 .yt-cap { display: flex; align-items: center; gap: 10px; padding: 9px 10px; font: 11px var(--mono); color: var(--fg3); cursor: grab; touch-action: none; }
 .yt-cap .yt-name { flex: 1; }
 .yt-cap a { cursor: pointer; }

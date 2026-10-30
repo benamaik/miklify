@@ -42,6 +42,7 @@ const settings = new Store(path.join(app.getPath('userData'), 'settings.json'), 
   ytPos: null,        // положение панели с видео YouTube {x, y}; null — по умолчанию
   ytConsent: false,   // пользователь принял политику конфиденциальности и условия YouTube
   ytBlocked: {},      // ролики, которые плеер YouTube отказался играть: videoId → {at, code}
+  ytProbe: true,      // проверять результаты поиска YouTube плеером до показа
   onlineTracks: {},   // онлайн-треки и станции, которые лежат в плейлистах/лайках/очереди
   radioFav: [],       // избранные радиостанции
 });

@@ -41,6 +41,60 @@ const Yt = (() => {
     frame.src = `http://127.0.0.1:${port}/player.html`;
   }
 
+  // ----- проверка доступности роликов -----
+  // Второй плеер (отдельное окно): основной в это время может играть. Ролик «подгружается» без воспроизведения;
+  // если играть его нельзя, плеер сообщает об ошибке за доли секунды.
+  const probeBox = $('#ytProbe');
+  const probeFrame = $('#ytProbeFrame');
+  const BLOCKED_CODES = [100, 101, 150, 153];
+  let probeReady = null;      // Promise: страница плеера для проверки загружена
+  let probeWait = null;       // ожидание ответа по текущему ролику
+
+  function ensureProbe() {
+    if (probeReady) return probeReady;
+    probeReady = new Promise((resolve, reject) => {
+      const timer = setTimeout(() => { probeReady = null; reject(new Error('probe timeout')); }, 10000);
+      probeFrame.dataset.onReady = '1';
+      window.addEventListener('message', function onReady(e) {
+        if (e.source === probeFrame.contentWindow && e.data?.miklifyYt && e.data.type === 'ready') {
+          clearTimeout(timer);
+          window.removeEventListener('message', onReady);
+          resolve();
+        }
+      });
+      api.ytPort().then((port) => { probeFrame.src = `http://127.0.0.1:${port}/player.html`; }).catch(reject);
+    });
+    return probeReady;
+  }
+
+  window.addEventListener('message', (e) => {
+    if (e.source !== probeFrame.contentWindow || !e.data?.miklifyYt || !probeWait) return;
+    const d = e.data;
+    if (d.type === 'error') probeWait.finish(BLOCKED_CODES.includes(d.code) ? 'blocked' : 'unknown');
+    else if (d.type === 'state' && d.state === 5) probeWait.finish('ok'); // 5 — ролик подгружен, играть можно
+  });
+
+  function probeOne(id) {
+    return new Promise((resolve) => {
+      const finish = (result) => { clearTimeout(timer); probeWait = null; resolve(result); };
+      const timer = setTimeout(() => finish('unknown'), 3000); // нет ответа — считаем, что играть можно
+      probeWait = { finish };
+      probeFrame.contentWindow.postMessage({ miklifyYt: true, cmd: 'load', id, autoplay: false, start: 0 }, '*');
+    });
+  }
+
+  // Проверить ролики по очереди. onStep(done, total, id, result) вызывается после каждого.
+  async function probe(ids, onStep, cancelled) {
+    await ensureProbe();
+    const blocked = [];
+    for (let i = 0; i < ids.length && !cancelled(); i++) {
+      const result = await probeOne(ids[i]);
+      if (result === 'blocked') blocked.push(ids[i]);
+      onStep(i + 1, ids.length, ids[i], result);
+    }
+    return blocked;
+  }
+
   // ----- перетаскивание панели за нижнюю полосу -----
   const cap = $('#ytCap');
   let pos = null;            // {x, y} — левый верхний угол в пикселях; null — положение по умолчанию (справа внизу)
@@ -97,6 +151,8 @@ const Yt = (() => {
 
   return Object.assign(api_, {
     on(handlers) { listeners = handlers; },
+    probe,
+    showProbe(v) { probeBox.classList.toggle('hidden', !v); },
     // Запомненное положение из настроек
     setPos(p) { pos = p && Number.isFinite(p.x) && Number.isFinite(p.y) ? { x: p.x, y: p.y } : null; applyPos(); },
     // Панель с видео обязана быть видна, пока играет YouTube (правила встраивания)

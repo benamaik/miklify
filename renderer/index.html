@@ -78,6 +78,14 @@
     </div>
   </div>
 
+  <!-- Проверка результатов поиска: плеер YouTube по очереди «подгружает» каждый ролик без воспроизведения
+       и сообщает, разрешено ли его играть. Окно видно и не меньше 200x200, пока идёт проверка. -->
+  <div id="ytProbe" class="yt-panel yt-probe hidden">
+    <iframe id="ytProbeFrame" title="Проверка доступности роликов YouTube" allow="autoplay; encrypted-media"></iframe>
+    <div class="yt-cap yt-cap-static"><span id="ytProbeCap">Проверяю, что можно проиграть…</span></div>
+    <div class="bar"><i id="ytProbeBar"></i></div>
+  </div>
+
   <div id="ctx" class="ctx hidden"></div>
   <div id="modal" class="modal hidden"></div>
   <div id="toast" class="toast hidden"></div>

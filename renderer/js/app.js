@@ -46,15 +46,41 @@ function isYtBlocked(t) {
   return !!b && Date.now() - b.at < YT_MAX_DAYS * DAY_MS;
 }
 
-function markYtBlocked(t, code) {
+function markYtBlocked(t, code, { quiet = false } = {}) {
   if (!t.videoId) return;
   const blocked = S.set.ytBlocked || (S.set.ytBlocked = {});
   blocked[t.videoId] = { at: Date.now(), code };
   saveSet({ ytBlocked: blocked });
   // списки: приглушаем строки на месте, чтобы не сбрасывать прокрутку
   $$(`.row[data-id="${t.id}"]`).forEach((r) => r.classList.add('unavail'));
-  // поиск YouTube: убираем ролик из результатов
-  if (S.view.name === 'online' && S.onlineTab === 'yt') runOnlineSearch();
+  // поиск YouTube: убираем ролик из результатов (при проверке — один раз в конце, чтобы список не мигал)
+  if (!quiet && S.view.name === 'online' && S.onlineTab === 'yt') runOnlineSearch();
+}
+
+// Проверка результатов поиска заранее: API YouTube про многие ролики говорит «встраивать можно», а плеер
+// всё равно отказывается (права, страна, возраст), и узнать это можно только у самого плеера.
+S.ytOk = new Set(); // ролики, которые плеер уже принял в этом запуске
+async function probeYoutubeResults(items, token) {
+  const todo = items.filter((t) => t.videoId && !isYtBlocked(t) && !S.ytOk.has(t.videoId));
+  if (!todo.length || S.set.ytProbe === false) return;
+  const cap = $('#ytProbeCap'), bar = $('#ytProbeBar');
+  const cancelled = () => token !== S.oToken || S.view.name !== 'online' || S.onlineTab !== 'yt';
+  Yt.showProbe(true);
+  let found = 0;
+  try {
+    await Yt.probe(todo.map((t) => t.videoId), (done, total, id, result) => {
+      if (result === 'ok') S.ytOk.add(id);
+      if (result === 'blocked') { found++; markYtBlocked(todo[done - 1], 150, { quiet: true }); }
+      cap.textContent = `Проверяю, что можно проиграть: ${done} / ${total}${found ? ` · недоступно ${found}` : ''}`;
+      bar.style.width = (done / total) * 100 + '%';
+    }, cancelled);
+  } catch {
+    // плеер для проверки не загрузился (нет сети) — показываем результаты как есть
+  } finally {
+    Yt.showProbe(false);
+    bar.style.width = '0';
+  }
+  if (found && !cancelled()) runOnlineSearch(); // перерисовать список без недоступных
 }
 
 // Данные, которым больше 30 дней, не храним: через месяц ролик можно проверить заново
@@ -273,6 +299,7 @@ async function runOnlineSearch() {
   for (const t of items) S.online.set(t.id, t);
   S.oRes[tab] = { q, items, error };
   show(S.oRes[tab]);
+  if (tab === 'yt' && !error) probeYoutubeResults(items, token);
 }
 
 function toggleRadioFav(id) {
