@@ -54,7 +54,6 @@ const Yt = (() => {
     if (probeReady) return probeReady;
     probeReady = new Promise((resolve, reject) => {
       const timer = setTimeout(() => { probeReady = null; reject(new Error('probe timeout')); }, 10000);
-      probeFrame.dataset.onReady = '1';
       window.addEventListener('message', function onReady(e) {
         if (e.source === probeFrame.contentWindow && e.data?.miklifyYt && e.data.type === 'ready') {
           clearTimeout(timer);
@@ -95,53 +94,157 @@ const Yt = (() => {
     return blocked;
   }
 
-  // ----- перетаскивание панели за нижнюю полосу -----
+  // ----- окно мини-плеера: размеры, магнитные позиции, перетаскивание -----
   const cap = $('#ytCap');
-  let pos = null;            // {x, y} — левый верхний угол в пикселях; null — положение по умолчанию (справа внизу)
+  const snapEl = $('#ytSnap');
+  // 200x200 — минимальный размер видео по правилам YouTube, меньше делать нельзя
+  const VIDEO = { float: { w: 356, h: 200 }, compact: { w: 200, h: 200 } };
+  const CHROME_H = 38;       // полоса управления под видео
+  const BORDER = 2;          // рамка панели
+  const EDGE = 16;           // отступ от края окна
+  const BAR = 100;           // внизу окна занято панелью плеера
+  const SNAP_DIST = 180;     // с какого расстояния панель притягивается к позиции
+  const ANCHORS = ['tl', 'tc', 'tr', 'ml', 'mr', 'bl', 'bc', 'br'];
+
+  let view = 'float';            // float | compact | full
+  let lastView = 'float';        // куда вернуться из режима «на всё окно»
+  let place = { anchor: 'br' };  // {anchor} — прилипла к позиции; {x, y} — стоит там, где оставили
   let drag = null;
   const api_ = {};
 
   const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), Math.max(lo, hi));
+  const panelSize = () => ({ w: VIDEO[view].w + BORDER, h: VIDEO[view].h + CHROME_H + BORDER });
 
-  // Поставить панель на pos, не выпуская за границы окна
-  function applyPos() {
-    if (!pos) {
-      Object.assign(panel.style, { left: '', top: '', right: '', bottom: '' });
-      return;
+  // Координаты всех позиций для панели размером w×h
+  function anchorPoints(w, h) {
+    const right = innerWidth - w - EDGE, bottom = innerHeight - h - BAR;
+    const cx = (innerWidth - w) / 2, cy = (EDGE + bottom) / 2;
+    return {
+      tl: [EDGE, EDGE], tc: [cx, EDGE], tr: [right, EDGE],
+      ml: [EDGE, cy], mr: [right, cy],
+      bl: [EDGE, bottom], bc: [cx, bottom], br: [right, bottom],
+    };
+  }
+
+  function targetRect() {
+    if (view === 'full') return { x: 8, y: 8, w: innerWidth - 16, h: innerHeight - BAR - 8 };
+    const { w, h } = panelSize();
+    if (place.anchor) {
+      const [x, y] = anchorPoints(w, h)[place.anchor];
+      return { x, y, w, h };
     }
-    const w = panel.offsetWidth || 356, h = panel.offsetHeight || 234;
-    pos = { x: clamp(pos.x, 0, innerWidth - w), y: clamp(pos.y, 0, innerHeight - h) };
-    Object.assign(panel.style, { left: pos.x + 'px', top: pos.y + 'px', right: 'auto', bottom: 'auto' });
+    return { x: clamp(place.x, 0, innerWidth - w), y: clamp(place.y, 0, innerHeight - h - BAR), w, h };
+  }
+
+  // Размер и положение анимирует CSS-переход на left/top/width/height
+  function applyLayout() {
+    const r = targetRect();
+    Object.assign(panel.style, { left: r.x + 'px', top: r.y + 'px', width: r.w + 'px', height: r.h + 'px' });
+    panel.classList.toggle('compact', view === 'compact');
+    panel.classList.toggle('full', view === 'full');
+
+    // Страница под панелью получает отступ, только если панель стоит у нижнего края и перекрывает контент
+    const atBottom = view !== 'full' && place.anchor && place.anchor[0] === 'b';
+    document.body.style.setProperty('--yt-pad', atBottom ? `${r.h + 12}px` : '0px');
+
+    const compactBtn = $('[data-yt="compact"]', cap), fullBtn = $('[data-yt="full"]', cap);
+    compactBtn.innerHTML = icon(view === 'compact' ? 'pip' : 'minimize', 16);
+    compactBtn.title = view === 'compact' ? 'Обычный размер' : 'Уменьшить';
+    fullBtn.innerHTML = icon(view === 'full' ? 'fullscreenExit' : 'fullscreen', 16);
+    fullBtn.title = view === 'full' ? 'Свернуть из режима на всё окно (Esc)' : 'На всё окно';
+    cap.title = view === 'full' ? '' : 'Потяните, чтобы переместить. Двойной клик — на всё окно';
+  }
+
+  const saveLayout = () => api_.moved?.(place, view);
+
+  function setView(next) {
+    if (next === view) return;
+    if (next === 'full') lastView = view;
+    view = next;
+    applyLayout();
+    saveLayout();
+  }
+  const toggleFull = () => setView(view === 'full' ? lastView : 'full');
+
+  // Плавное перетаскивание: за курсором идёт transform (страница не перестраивается), раз в кадр
+  function paintDrag() {
+    drag.raf = 0;
+    const { w, h } = panelSize();
+    const x = clamp(drag.x + drag.cx - drag.sx, 0, innerWidth - w);
+    const y = clamp(drag.y + drag.cy - drag.sy, 0, innerHeight - h - BAR);
+    drag.nowX = x;
+    drag.nowY = y;
+    panel.style.transform = `translate3d(${x - drag.x}px, ${y - drag.y}px, 0)`;
+
+    // Ближайшая позиция подсвечивается рамкой: отпустите — и панель прилипнет к ней
+    const points = anchorPoints(w, h);
+    let best = null, bestDist = SNAP_DIST;
+    for (const name of ANCHORS) {
+      const dist = Math.hypot(points[name][0] - x, points[name][1] - y);
+      if (dist < bestDist) { best = name; bestDist = dist; }
+    }
+    drag.anchor = best;
+    snapEl.classList.toggle('hidden', !best);
+    if (best) Object.assign(snapEl.style, { left: points[best][0] + 'px', top: points[best][1] + 'px', width: w + 'px', height: h + 'px' });
   }
 
   cap.addEventListener('pointerdown', (e) => {
-    if (e.button !== 0 || e.target.closest('a')) return;
+    if (e.button !== 0 || view === 'full' || e.target.closest('button')) return;
     const r = panel.getBoundingClientRect();
-    drag = { dx: e.clientX - r.left, dy: e.clientY - r.top };
+    drag = { sx: e.clientX, sy: e.clientY, cx: e.clientX, cy: e.clientY, x: r.left, y: r.top, nowX: r.left, nowY: r.top, anchor: null, raf: 0, moved: false };
     cap.setPointerCapture(e.pointerId); // события идут к полосе, даже когда курсор над видео
     panel.classList.add('dragging');
   });
   cap.addEventListener('pointermove', (e) => {
     if (!drag) return;
-    pos = { x: e.clientX - drag.dx, y: e.clientY - drag.dy };
-    applyPos();
+    drag.cx = e.clientX;
+    drag.cy = e.clientY;
+    drag.moved = drag.moved || Math.hypot(drag.cx - drag.sx, drag.cy - drag.sy) > 3;
+    if (drag.moved && !drag.raf) drag.raf = requestAnimationFrame(paintDrag);
   });
   const endDrag = () => {
     if (!drag) return;
+    cancelAnimationFrame(drag.raf);
+    const d = drag;
     drag = null;
+    snapEl.classList.add('hidden');
+    if (!d.moved) { panel.classList.remove('dragging'); return; }
+    // Закрепляем панель там, где её отпустили (переходы пока выключены), и уже оттуда она плавно доезжает до позиции
+    panel.style.transform = '';
+    panel.style.left = d.nowX + 'px';
+    panel.style.top = d.nowY + 'px';
+    void panel.offsetWidth;
     panel.classList.remove('dragging');
-    api_.moved?.(pos);
+    place = d.anchor ? { anchor: d.anchor } : { x: d.nowX, y: d.nowY };
+    applyLayout();
+    saveLayout();
   };
   cap.addEventListener('pointerup', endDrag);
   cap.addEventListener('pointercancel', endDrag);
-  // Двойной клик по полосе — вернуть панель на место
-  cap.addEventListener('dblclick', (e) => {
-    if (e.target.closest('a')) return;
-    pos = null;
-    applyPos();
-    api_.moved?.(null);
+
+  cap.addEventListener('click', (e) => {
+    const action = e.target.closest('[data-yt]')?.dataset.yt;
+    if (action === 'compact') setView(view === 'compact' ? 'float' : 'compact');
+    else if (action === 'full') toggleFull();
+    else if (action === 'close') api_.closed?.();
   });
-  window.addEventListener('resize', () => { if (pos) applyPos(); });
+  cap.addEventListener('dblclick', (e) => { if (!e.target.closest('button')) toggleFull(); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && view === 'full' && !panel.classList.contains('hidden')) setView(lastView);
+  });
+  // При изменении размера окна панель встаёт на место сразу, без «догоняющей» анимации
+  let resizeTimer = 0;
+  window.addEventListener('resize', () => {
+    if (drag) return;
+    panel.classList.add('instant');
+    applyLayout();
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => panel.classList.remove('instant'), 120);
+  });
+
+  $('[data-yt="open"]', cap).innerHTML = icon('open', 15);
+  $('[data-yt="close"]', cap).innerHTML = icon('close', 16);
+  applyLayout();
 
   // Клик по видео отдаёт клавиатурный фокус iframe, и горячие клавиши Miklify (пробел, стрелки) замолкают.
   // Сразу возвращаем фокус основному окну.
@@ -153,13 +256,22 @@ const Yt = (() => {
     on(handlers) { listeners = handlers; },
     probe,
     showProbe(v) { probeBox.classList.toggle('hidden', !v); },
-    // Запомненное положение из настроек
-    setPos(p) { pos = p && Number.isFinite(p.x) && Number.isFinite(p.y) ? { x: p.x, y: p.y } : null; applyPos(); },
+    // Запомненные положение и размер из настроек (на весь экран при запуске не открываем)
+    restore(savedPlace, savedView) {
+      const ok = savedPlace && (ANCHORS.includes(savedPlace.anchor) || (Number.isFinite(savedPlace.x) && Number.isFinite(savedPlace.y)));
+      if (ok) place = ANCHORS.includes(savedPlace.anchor) ? { anchor: savedPlace.anchor } : { x: savedPlace.x, y: savedPlace.y };
+      if (savedView === 'float' || savedView === 'compact') view = savedView;
+      panel.classList.add('instant');
+      applyLayout();
+      setTimeout(() => panel.classList.remove('instant'), 120);
+    },
+    // Название играющего ролика в полосе под видео
+    setTitle(text) { $('#ytName').textContent = text || 'YouTube'; },
     // Панель с видео обязана быть видна, пока играет YouTube (правила встраивания)
     show(v) {
       panel.classList.toggle('hidden', !v);
       document.body.classList.toggle('yt-on', !!v); // освобождаем место внизу страницы под панель
-      if (v) applyPos(); // размер панели известен только когда она показана
+      if (v) applyLayout();
     },
     load(videoId, { autoplay = true, start = 0 } = {}) {
       ensureStarted();

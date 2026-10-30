@@ -244,23 +244,50 @@ h1, h2, h3 { margin: 0; }
 .qrow.over { box-shadow: 0 -1px 0 var(--fg); }
 .qrow.current .rtt b { font-weight: 700; }
 
-/* Панель с видео YouTube: не меньше 200x200 по правилам встраивания */
-.yt-panel { position: fixed; right: 18px; bottom: 100px; z-index: 40; width: 356px; background: var(--panel-solid); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; box-shadow: 0 12px 32px rgba(0,0,0,.45); animation: fadeIn .2s var(--ease); }
-.yt-panel iframe { display: block; width: 356px; height: 200px; border: 0; background: #000; }
-body.yt-on .view { padding-bottom: 250px; }
-.yt-probe { right: 28px; bottom: auto; top: 158px; z-index: 45; }
-.yt-cap-static { cursor: default; }
-.yt-probe .bar { margin: 0; height: 2px; border-radius: 0; }
-.yt-cap { display: flex; align-items: center; gap: 10px; padding: 9px 10px; font: 11px var(--mono); color: var(--fg3); cursor: grab; touch-action: none; }
-.yt-cap .yt-name { flex: 1; }
-.yt-cap a { cursor: pointer; }
-.yt-grip { width: 16px; height: 8px; flex: none; background: repeating-linear-gradient(to bottom, var(--fg3) 0 1px, transparent 1px 4px); opacity: .8; }
+/* Панель с видео YouTube: видео не меньше 200x200 по правилам встраивания */
+.yt-panel { position: fixed; z-index: 40; background: var(--panel-solid); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; box-shadow: 0 14px 36px rgba(0,0,0,.5); }
+.yt-panel iframe { display: block; border: 0; background: #000; }
+
+/* Мини-плеер: размер и положение задаёт скрипт, CSS их плавно анимирует */
+.yt-mini { left: 0; top: 0; display: flex; flex-direction: column; will-change: left, top, width, height;
+  transition: left .32s var(--ease), top .32s var(--ease), width .32s var(--ease), height .32s var(--ease), box-shadow .2s, border-radius .32s var(--ease);
+  animation: ytIn .24s var(--ease); }
+@keyframes ytIn { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
+.yt-mini iframe { flex: 1; min-height: 0; width: 100%; }
+.yt-mini.instant { transition: none; }
+.yt-mini.full { border-radius: 6px; box-shadow: 0 18px 50px rgba(0,0,0,.6); z-index: 60; }
+body.yt-on .view { padding-bottom: calc(32px + var(--yt-pad, 0px)); transition: padding-bottom .3s var(--ease); }
+
+/* Полоса управления: за неё панель тянут */
+.yt-cap { display: flex; align-items: center; gap: 2px; height: 38px; flex: none; padding: 0 6px 0 10px; font: 11px var(--mono); color: var(--fg2); cursor: grab; touch-action: none; user-select: none; border-top: 1px solid var(--line); }
+.yt-cap .yt-name { flex: 1; min-width: 0; margin: 0 6px 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.yt-grip { width: 14px; height: 9px; flex: none; background: repeating-linear-gradient(to bottom, var(--fg3) 0 1px, transparent 1px 4px); opacity: .8; transition: opacity .15s; }
 .yt-cap:hover .yt-grip { opacity: 1; background: repeating-linear-gradient(to bottom, var(--fg) 0 1px, transparent 1px 4px); }
-.yt-panel.dragging { cursor: grabbing; box-shadow: 0 18px 44px rgba(0,0,0,.6); }
-.yt-panel.dragging .yt-cap { cursor: grabbing; }
-.yt-panel.dragging iframe { pointer-events: none; } /* пока тянем, видео не должно перехватывать мышь */
-.yt-cap a { text-decoration: underline; }
-.yt-cap a:hover { color: var(--fg); }
+.yt-btn { display: grid; place-items: center; width: 28px; height: 28px; flex: none; border-radius: 6px; color: var(--fg2); cursor: pointer; transition: background .15s var(--ease), color .15s var(--ease); }
+.yt-btn:hover { background: var(--hover); color: var(--fg); }
+.yt-btn[data-yt="close"]:hover { background: var(--fg); color: var(--on-accent); }
+.yt-mini.compact .yt-name, .yt-mini.compact [data-yt="open"] { display: none; }
+.yt-mini.compact .yt-cap { padding-left: 8px; }
+.yt-mini.compact .yt-cap::before { content: ""; flex: 1; order: 1; } /* кнопки прижимаем вправо */
+.yt-mini.compact .yt-btn, .yt-mini.compact .yt-grip { order: 2; }
+.yt-mini.compact .yt-grip { order: 0; }
+.yt-mini.full .yt-cap { cursor: default; }
+.yt-mini.full .yt-grip { visibility: hidden; }
+
+/* Перетаскивание: переходов нет, панель идёт за курсором, видео не перехватывает мышь */
+.yt-mini.dragging { transition: none; cursor: grabbing; box-shadow: 0 22px 54px rgba(0,0,0,.65); }
+.yt-mini.dragging .yt-cap { cursor: grabbing; }
+.yt-mini.dragging iframe { pointer-events: none; }
+
+/* Рамка-подсказка: куда прилипнет панель */
+.yt-snap { position: fixed; z-index: 39; border: 1px dashed var(--fg2); border-radius: 10px; background: rgba(255,255,255,.05); pointer-events: none; transition: left .18s var(--ease), top .18s var(--ease), width .18s var(--ease), height .18s var(--ease); }
+:root[data-theme="light"] .yt-snap { background: rgba(0,0,0,.05); }
+
+/* Окно проверки результатов */
+.yt-probe { right: 28px; top: 158px; z-index: 45; width: 358px; animation: fadeIn .2s var(--ease); }
+.yt-probe iframe { width: 356px; height: 200px; }
+.yt-cap-static { cursor: default; height: auto; padding: 9px 10px; }
+.yt-probe .bar { margin: 0; height: 2px; border-radius: 0; }
 
 /* Правовая информация */
 .legal { max-width: 680px; padding-bottom: 20px; }

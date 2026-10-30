@@ -39,7 +39,8 @@ const settings = new Store(path.join(app.getPath('userData'), 'settings.json'), 
   acoustidKey: '',    // ключ AcoustID для распознавания по звуку
   jamendoKey: '',     // Client ID Jamendo, введённый во вкладке «Онлайн»
   youtubeKey: '',     // ключ YouTube Data API, введённый во вкладке «Онлайн»
-  ytPos: null,        // положение панели с видео YouTube {x, y}; null — по умолчанию
+  ytPos: null,        // старый формат положения панели с видео {x, y}
+  ytLayout: null,     // окно видео YouTube: {place: {anchor}|{x,y}, view: float|compact}
   ytConsent: false,   // пользователь принял политику конфиденциальности и условия YouTube
   ytBlocked: {},      // ролики, которые плеер YouTube отказался играть: videoId → {at, code}
   ytProbe: true,      // проверять результаты поиска YouTube плеером до показа

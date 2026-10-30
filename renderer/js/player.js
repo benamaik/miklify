@@ -320,6 +320,22 @@ const Player = (() => {
       });
     },
 
+    // Закрыть окно с видео YouTube: ставим на паузу и убираем с экрана. Играть при закрытом окне нельзя
+    // (правила YouTube), поэтому закрытие всегда означает паузу; кнопка «играть» окно возвращает.
+    closeVideo() {
+      if (!ytMode) return;
+      cancelFade();
+      clearInterval(ytRamp);
+      ytRamp = 0;
+      ytLevel = audio.volume;
+      Yt.volume(ytLevel);
+      Yt.pause();
+      yt.playing = false;
+      ytResume = false;
+      Yt.show(false);
+      emit();
+    },
+
     // Окно скрыли или вернули
     setWindowVisible(v) {
       windowVisible = v;
@@ -366,6 +382,7 @@ const Player = (() => {
           fadeOut(() => { pausing = false; Yt.pause(); });
         } else {
           yt.playing = true;
+          Yt.show(true); // окно могли закрыть — по кнопке «играть» оно возвращается
           Yt.play();
           fadeIn();
         }

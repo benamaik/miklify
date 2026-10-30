@@ -70,13 +70,20 @@
   </div>
 
   <!-- Видео YouTube: показывается, пока играет трек с YouTube (по правилам встраивания его нельзя прятать) -->
-  <div id="ytPanel" class="yt-panel hidden">
+  <div id="ytPanel" class="yt-panel yt-mini hidden">
     <iframe id="ytFrame" title="YouTube" allow="autoplay; encrypted-media; fullscreen"></iframe>
-    <!-- За эту полосу панель можно перетаскивать; двойной клик возвращает на место -->
-    <div class="yt-cap" id="ytCap" title="Потяните, чтобы переместить. Двойной клик — вернуть на место">
-      <span class="yt-grip"></span><span class="yt-name">YouTube</span><a data-act="openYt">Открыть на YouTube</a>
+    <!-- За эту полосу панель можно перетаскивать: она прилипает к углам и серединам краёв -->
+    <div class="yt-cap" id="ytCap">
+      <span class="yt-grip"></span>
+      <span class="yt-name" id="ytName">YouTube</span>
+      <button class="yt-btn" data-yt="open" title="Открыть на YouTube"></button>
+      <button class="yt-btn" data-yt="compact"></button>
+      <button class="yt-btn" data-yt="full"></button>
+      <button class="yt-btn" data-yt="close" title="Закрыть и поставить на паузу"></button>
     </div>
   </div>
+  <!-- Подсказка при перетаскивании: сюда прилипнет панель -->
+  <div id="ytSnap" class="yt-snap hidden"></div>
 
   <!-- Проверка результатов поиска: плеер YouTube по очереди «подгружает» каждый ролик без воспроизведения
        и сообщает, разрешено ли его играть. Окно видно и не меньше 200x200, пока идёт проверка. -->

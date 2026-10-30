@@ -415,6 +415,7 @@ function updatePlayerBar() {
   $('#bMute').innerHTML = icon(v === 0 ? 'mute' : 'volume', 22);
   updateTime();
 
+  if (t?.online === 'youtube') Yt.setTitle(`${t.artist} — ${t.title}`);
   api.nowPlaying(t ? `${t.artist} — ${t.title}` : '', Player.playing);
   markPlaying();
   if (S.view.name === 'queue' && !seekDragging) render();
@@ -549,7 +550,7 @@ function bindEvents() {
   // Ссылка под видео YouTube
   $('#ytPanel').addEventListener('click', (e) => {
     const cur = Player.current();
-    if (e.target.closest('[data-act="openYt"]') && cur?.videoId) api.openUrl('https://www.youtube.com/watch?v=' + cur.videoId);
+    if (e.target.closest('[data-yt="open"]') && cur?.videoId) api.openUrl('https://www.youtube.com/watch?v=' + cur.videoId);
   });
 
   // Битые картинки (логотипы радиостанций, обложки из сети) просто скрываем
@@ -812,8 +813,11 @@ async function boot() {
   S.likes = new Set(settings.likes);
   S.online = new Map(Object.entries(settings.onlineTracks || {}));
   S.set.radioFav = settings.radioFav || [];
-  Yt.setPos(settings.ytPos);
-  Yt.moved = (p) => saveSet({ ytPos: p }); // положение видео-панели запоминаем
+  // положение и размер видео-панели запоминаем (старая настройка ytPos — просто координаты)
+  Yt.restore(settings.ytLayout?.place ?? settings.ytPos, settings.ytLayout?.view);
+  Yt.moved = (place, view) => saveSet({ ytLayout: { place, view } });
+  // «Закрыть» у видео = пауза и убрать окно: YouTube нельзя играть, когда плеер не виден
+  Yt.closed = () => Player.closeVideo();
   setLibrary(tracks);
 
   document.documentElement.dataset.theme = settings.theme || 'dark';
