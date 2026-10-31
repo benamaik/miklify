@@ -410,6 +410,10 @@ function updatePlayerBar() {
   const t = Player.current();
   $('#npTitle').textContent = t ? t.title : 'Ничего не играет';
   $('#npArtist').textContent = t ? t.artist : '';
+  // У ролика YouTube исполнитель — ссылка на его страницу
+  const link = t?.online === 'youtube' && t.channelId;
+  $('#npArtist').classList.toggle('link', !!link);
+  $('#npArtist').dataset.track = link ? t.id : '';
   $('#npCover').innerHTML = t ? coverHtml(t.cover, t.album, 'fill') : '';
   const liked = t && S.likes.has(t.id);
   $('#npLike').innerHTML = t ? icon(liked ? 'heartFill' : 'heart', 20) : '';
@@ -572,6 +576,7 @@ function bindEvents() {
 
   // горячие клавиши
   document.addEventListener('keydown', onKey);
+  $('#npArtist').addEventListener('click', (e) => { if (e.currentTarget.dataset.track) runAction('ytArtist', e.currentTarget.dataset.track); });
 }
 
 function onNavClick(e) {
@@ -648,8 +653,9 @@ async function runAction(act, arg) {
       const t = S.online.get(arg) || trackById(arg);
       if (!t?.channelId) break;
       S.ytChannel = { id: t.channelId, name: t.artist };
-      $('#oresults').innerHTML = '<div class="empty-sm">Загрузка…</div>';
-      runOnlineSearch();
+      S.onlineTab = 'yt';
+      if (S.view.name === 'online') { $('#oresults').innerHTML = '<div class="empty-sm">Загрузка…</div>'; runOnlineSearch(); }
+      else go('online', null); // страница сама запустит поиск
       break;
     }
     case 'ytBack': S.ytChannel = null; runOnlineSearch(); break;
