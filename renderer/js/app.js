@@ -220,6 +220,7 @@ function render() {
   if (name === 'settings') bindSettings();
   if (name === 'online') bindOnline();
   if (name === 'share') Share.refresh();
+  if (name === 'lyrics') showLyrics();
   syncNav();
   markPlaying();
 }
@@ -424,6 +425,7 @@ function updatePlayerBar() {
   rep.classList.toggle('on', Player.repeat !== 'off');
   rep.innerHTML = icon('repeat', 20) + (Player.repeat === 'one' ? '<i class="badge">1</i>' : '');
   $('#bQueue').classList.toggle('on', S.view.name === 'queue');
+  $('#bLyrics').classList.toggle('on', S.view.name === 'lyrics');
   const v = Player.volume;
   $('#vol').value = Math.round(v * 100);
   $('#vol').style.setProperty('--p', Math.round(v * 100) + '%');
@@ -434,12 +436,51 @@ function updatePlayerBar() {
   api.nowPlaying(t ? `${t.artist} — ${t.title}` : '', Player.playing);
   markPlaying();
   if (S.view.name === 'queue' && !seekDragging) render();
+  if (S.view.name === 'lyrics' && lyrId !== t?.id) showLyrics();
+}
+
+// ----- тексты песен -----
+let lyrId = null, lyrData = null, lyrLine = -1;
+async function showLyrics() {
+  const t = Player.current();
+  lyrId = t?.id || null; lyrData = null; lyrLine = -1;
+  const box = $('#lyr'), head = $('#lyrHead');
+  if (!t) { head.innerHTML = ''; box.innerHTML = '<div class="empty-sm">Включите трек, чтобы увидеть текст</div>'; return; }
+  head.innerHTML = `<b>${esc(t.title)}</b><span>${esc(t.artist)}</span>`;
+  if (t.live) { box.innerHTML = '<div class="empty-sm">У радио текста нет</div>'; return; }
+  box.innerHTML = '<div class="empty-sm">Ищу текст…</div>';
+  let res, failed = false;
+  try { res = await api.lyrics(t); } catch { failed = true; }
+  if (lyrId !== t.id || S.view.name !== 'lyrics') return; // за время поиска сменили трек или страницу
+  if (failed) { box.innerHTML = '<div class="empty-sm">Не удалось загрузить текст: нет связи с сервисом</div>'; return; }
+  if (!res) { box.innerHTML = '<div class="empty-sm">Текст не нашёлся. Можно положить рядом с файлом одноимённый .lrc или .txt</div>'; return; }
+  lyrData = res.synced;
+  const src = `<p class="attrib">Текст: ${esc(res.source)}${res.synced ? ' · строки идут по времени' : ''}</p>`;
+  box.innerHTML = (res.synced
+    ? res.synced.map((l, i) => `<p class="ll" data-i="${i}" data-t="${l.t}">${esc(l.text) || '♪'}</p>`).join('')
+    : `<div class="lyr-plain">${esc(res.plain).replaceAll('\n', '<br>')}</div>`) + src;
+  syncLyrics(Player.currentTime);
+}
+
+// Подсветить текущую строку и мягко прокрутить к ней
+function syncLyrics(cur) {
+  if (!lyrData) return;
+  let i = -1;
+  for (let k = 0; k < lyrData.length && lyrData[k].t <= cur + 0.15; k++) i = k;
+  if (i === lyrLine) return;
+  lyrLine = i;
+  $$('#lyr .ll.on').forEach((e) => e.classList.remove('on'));
+  const el = $(`#lyr .ll[data-i="${i}"]`);
+  if (!el) return;
+  el.classList.add('on');
+  el.scrollIntoView({ block: 'center', behavior: 'smooth' });
 }
 
 let seekDragging = false;
 function updateTime() {
   const seek = $('#seek');
   const cur = Player.currentTime;
+  if (S.view.name === 'lyrics') syncLyrics(cur);
   // Радио — прямой эфир: длительности нет, перематывать нельзя
   if (Player.current()?.live) {
     $('#tDur').textContent = 'ЭФИР';
@@ -476,6 +517,8 @@ function bindEvents() {
   $('#bPrev').innerHTML = icon('prev', 24);
   $('#bNext').innerHTML = icon('next', 24);
   $('#bQueue').innerHTML = icon('queue', 20);
+  $('#bLyrics').innerHTML = icon('lyrics', 20);
+  $('#bLyrics').onclick = () => go(S.view.name === 'lyrics' ? 'home' : 'lyrics');
 
   $('#back').onclick = () => { if (S.hi > 0) { S.hi--; go(S.hist[S.hi].name, S.hist[S.hi].arg, false); } };
   $('#fwd').onclick = () => { if (S.hi < S.hist.length - 1) { S.hi++; go(S.hist[S.hi].name, S.hist[S.hi].arg, false); } };

@@ -445,3 +445,12 @@ input[type=range]:hover::-webkit-slider-thumb, input[type=range]:active::-webkit
 
 #npArtist.link { cursor: pointer; }
 #npArtist.link:hover { color: #fff; text-decoration: underline; }
+
+/* тексты песен */
+.lyr-page { max-width: 760px; margin: 0 auto; padding: 8px 8px 120px; }
+.lyr-head { display: flex; flex-direction: column; gap: 2px; margin-bottom: 24px; }
+.lyr-head b { font-size: 22px; }
+.lyr-head span { color: var(--muted, #9a9a9a); }
+.lyr .ll { font-size: 24px; line-height: 1.35; font-weight: 700; margin: 14px 0; color: rgba(255,255,255,.28); transition: color .25s, transform .25s; transform-origin: left center; }
+.lyr .ll.on { color: #fff; transform: scale(1.03); }
+.lyr-plain { font-size: 18px; line-height: 1.7; color: rgba(255,255,255,.85); }

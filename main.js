@@ -264,6 +264,11 @@ ipcMain.handle('youtube:refresh', (_e, ids, region) => online.youtubeRefresh(you
 ipcMain.handle('yt:port', () => ytserver.start());
 ipcMain.handle('jamendo:search', (_e, q) => online.jamendoSearch(jamendoKey(), q));
 ipcMain.handle('radio:search', (_e, q) => online.radioSearch(q));
+const getLyrics = require('./src/lyrics').create(path.join(app.getPath('userData'), 'lyrics'));
+ipcMain.handle('lyrics:get', (_e, t) => getLyrics({
+  artist: String(t?.artist || ''), title: String(t?.title || ''), album: String(t?.album || ''),
+  duration: +t?.duration || 0, path: typeof t?.path === 'string' ? t.path : null,
+}));
 ipcMain.on('radio:click', (_e, uuid) => online.radioClick(uuid));
 
 // Папка для скачанных и полученных треков (для проверок можно подменить переменной MIKLIFY_MUSIC_DIR)
