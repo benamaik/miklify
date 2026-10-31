@@ -50,7 +50,7 @@ const Bg = (() => {
     const s = SCALE[style] || 1;
     W = cv.width = Math.max(2, Math.ceil(innerWidth * s));
     H = cv.height = Math.max(2, Math.ceil(innerHeight * s));
-    dots = Array.from({ length: 70 }, () => ({
+    dots = Array.from({ length: 45 }, () => ({
       x: Math.random() * W, y: Math.random() * H,
       vx: (Math.random() - 0.5) * 0.35, vy: -0.1 - Math.random() * 0.35,
       r: 1 + Math.random() * 2.2, k: Math.random(),
@@ -131,7 +131,7 @@ const Bg = (() => {
       ctx.fillStyle = g;
       ctx.beginPath();
       ctx.moveTo(0, H);
-      for (let x = 0; x <= W + 8; x += 8) {
+      for (let x = 0; x <= W + 12; x += 12) {
         const y = y0 + Math.sin(x * f + t * sp + i * 2) * amp + Math.sin(x * f * 2.3 - t * sp * 0.7) * amp * 0.4;
         ctx.lineTo(x, y);
       }
@@ -168,7 +168,7 @@ const Bg = (() => {
   function frame(now) {
     raf = requestAnimationFrame(frame);
     const dt = now - last;
-    if (dt < 32) return; // ~30 кадров/с — достаточно для мягкого фона
+    if (dt < (energy < 0.03 && kick < 0.02 ? 66 : 32)) return; // ~30 кадров/с, в тишине ~15 — для мягкого фона хватает
     last = now;
     t += dt / 1000;
     // Плавный переход к цвету обложки и сглаженная энергия звука
