@@ -7,6 +7,10 @@ const Yt = (() => {
   let ready = false;
   const queued = [];        // команды до готовности iframe
   let listeners = {};
+  let pending = null;       // трек, подготовленный на паузе: страницу плеера не грузим, пока его не включат
+  let lastId = null, lastT = 0; // что играло последним (чтобы после выгрузки продолжить с того же места)
+  let unloadTimer = 0;
+  let vol = 0.8;            // последняя громкость: после загрузки страницы плеера её нужно применить заново
 
   // Состояния плеера YouTube: -1 не начат, 0 конец, 1 играет, 2 пауза, 3 буферизация, 5 в очереди
   const S_ENDED = 0, S_PLAYING = 1, S_BUFFERING = 3;
@@ -27,11 +31,32 @@ const Yt = (() => {
       listeners.state?.(d.state === S_PLAYING || d.state === S_BUFFERING);
       if (d.state === S_ENDED) listeners.ended?.();
     } else if (d.type === 'time') {
+      lastT = d.t;
       listeners.time?.(d.t, d.d, d.id);
     } else if (d.type === 'error') {
       listeners.error?.(d.code);
     }
   });
+
+  // Запустить страницу плеера и включить подготовленный (или выгруженный) ролик с сохранённого места
+  function startPending() {
+    const p = pending || { id: lastId, start: lastT };
+    pending = null;
+    queued.length = 0;
+    ensureStarted();
+    post({ cmd: 'load', id: p.id, autoplay: true, start: p.start || 0 });
+    post({ cmd: 'volume', v: vol });
+  }
+
+  // Выгрузить плеер YouTube из памяти
+  function unload() {
+    if (!started) return;
+    started = false;
+    ready = false;
+    queued.length = 0;
+    pending = lastId ? { id: lastId, start: lastT } : null;
+    frame.src = 'about:blank';
+  }
 
   // Первый запуск: узнаём порт локального сервера и грузим страницу плеера
   async function ensureStarted() {
@@ -92,6 +117,13 @@ const Yt = (() => {
       onStep(i + 1, ids.length, ids[i], result);
     }
     return blocked;
+  }
+
+  // Освободить память: страница второго плеера больше не нужна
+  function releaseProbe() {
+    probeReady = null;
+    probeWait = null;
+    probeFrame.src = 'about:blank';
   }
 
   // ----- окно мини-плеера: размеры, магнитные позиции, перетаскивание -----
@@ -255,6 +287,7 @@ const Yt = (() => {
   return Object.assign(api_, {
     on(handlers) { listeners = handlers; },
     probe,
+    releaseProbe,
     showProbe(v) { probeBox.classList.toggle('hidden', !v); },
     // Запомненные положение и размер из настроек (на весь экран при запуске не открываем)
     restore(savedPlace, savedView) {
@@ -269,18 +302,33 @@ const Yt = (() => {
     setTitle(text) { $('#ytName').textContent = text || 'YouTube'; },
     // Панель с видео обязана быть видна, пока играет YouTube (правила встраивания)
     show(v) {
+      clearTimeout(unloadTimer);
+      // Минуту окно не нужно (играет своя музыка) — выгружаем плеер YouTube, это отдельные процессы и память
+      if (!v && started) unloadTimer = setTimeout(unload, 60000);
       panel.classList.toggle('hidden', !v);
       document.body.classList.toggle('yt-on', !!v); // освобождаем место внизу страницы под панель
       if (v) applyLayout();
     },
     load(videoId, { autoplay = true, start = 0 } = {}) {
+      lastId = videoId;
+      lastT = start;
+      // Трек, который только подготовили (после запуска приложения), не грузим, пока не нажмут «играть»
+      if (!autoplay && !started) { pending = { id: videoId, start }; return; }
+      pending = null;
       ensureStarted();
       post({ cmd: 'load', id: videoId, autoplay, start });
+      post({ cmd: 'volume', v: vol });
     },
-    play() { post({ cmd: 'play' }); },
-    pause() { post({ cmd: 'pause' }); },
-    stop() { post({ cmd: 'stop' }); },
-    seek(t) { post({ cmd: 'seek', t }); },
-    volume(v) { post({ cmd: 'volume', v }); },
+    play() {
+      if (pending || (!started && lastId)) { startPending(); return; }
+      post({ cmd: 'play' });
+    },
+    pause() { if (started) post({ cmd: 'pause' }); },
+    stop() { if (started) post({ cmd: 'stop' }); },
+    seek(t) {
+      if (pending) { pending.start = t; lastT = t; return; }
+      if (started) post({ cmd: 'seek', t });
+    },
+    volume(v) { vol = v; if (started) post({ cmd: 'volume', v }); },
   });
 })();

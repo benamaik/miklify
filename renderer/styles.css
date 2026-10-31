@@ -8,7 +8,7 @@
   --accent: #ededeb;
   --accent-rgb: 237, 237, 235;
   --on-accent: #0b0b0b;
-  --panel: rgba(18, 18, 18, 0.84);
+  --panel: rgba(18, 18, 18, 0.9);
   --panel-solid: #161616;
   --hover: rgba(255, 255, 255, 0.06);
   --line: rgba(255, 255, 255, 0.09);
@@ -26,7 +26,7 @@
   --accent: #121212;
   --accent-rgb: 18, 18, 18;
   --on-accent: #f4f4f1;
-  --panel: rgba(244, 244, 241, 0.86);
+  --panel: rgba(244, 244, 241, 0.9);
   --panel-solid: #f4f4f1;
   --hover: rgba(0, 0, 0, 0.05);
   --line: rgba(0, 0, 0, 0.1);
@@ -66,7 +66,6 @@ h1, h2, h3 { margin: 0; }
 }
 .panel {
   background: var(--panel);
-  backdrop-filter: blur(10px);
   border: 1px solid var(--line);
   border-radius: var(--radius);
 }

@@ -207,7 +207,7 @@ const Views = {
       </section>
 
       <section class="set-sec" id="eqSec">
-        <div class="set-row"><div class="set-t"><h2>Эквалайзер</h2><span>Поднимайте или убирайте низкие, средние и высокие частоты (−12…+12 дБ)</span></div>${sw('id="eqOn"', eq.on)}</div>
+        <div class="set-row"><div class="set-t"><h2>Эквалайзер</h2><span>Поднимайте или убирайте низкие, средние и высокие частоты (−12…+12 дБ). Действует на свою музыку, радио и Jamendo, но не на видео YouTube</span></div>${sw('id="eqOn"', eq.on)}</div>
         <div class="eq-presets">${seg('eqPreset', Object.entries(EQ_PRESETS).map(([id, p]) => [id, p.name]), eq.preset)}</div>
         <div class="eq ${eq.on ? '' : 'off'}">
           <div class="eq-scale"><span>+12</span><span>0</span><span>−12</span></div>${bands}

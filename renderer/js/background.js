@@ -8,7 +8,7 @@ const Bg = (() => {
     { id: 'off', name: 'Выкл' },
   ];
   // Масштаб внутреннего разрешения: мягкие фоны рисуем дешевле
-  const SCALE = { aurora: 0.5, particles: 1, waves: 0.75, stars: 1, off: 0.25 };
+  const SCALE = { aurora: 0.5, particles: 0.75, waves: 0.5, stars: 0.75, off: 0.25 };
 
   const cv = $('#bg');
   const ctx = cv.getContext('2d');
@@ -20,6 +20,8 @@ const Bg = (() => {
   let energyFn = () => 0;
   let energy = 0;
   let dots = [], stars = [];
+  let kick = 0;          // разовый всплеск энергии от событий приложения
+  let active = true;     // окно скрыто в трей — не рисуем
 
   // ----- цветовые помощники -----
   function rgbToHsl([r, g, b]) {
@@ -166,12 +168,13 @@ const Bg = (() => {
   function frame(now) {
     raf = requestAnimationFrame(frame);
     const dt = now - last;
-    if (dt < 28) return; // ~35 кадров/с — достаточно для мягкого фона
+    if (dt < 32) return; // ~30 кадров/с — достаточно для мягкого фона
     last = now;
     t += dt / 1000;
     // Плавный переход к цвету обложки и сглаженная энергия звука
     for (let i = 0; i < 3; i++) color[i] += (target[i] - color[i]) * 0.04;
-    energy += (energyFn() - energy) * 0.2;
+    kick *= 0.93; // всплеск (поиск, находки) плавно затухает
+    energy += (Math.max(energyFn(), kick) - energy) * 0.2;
     ({ aurora, particles, waves, stars: () => starfield(dt) }[style] || clear)();
   }
 
@@ -187,7 +190,7 @@ const Bg = (() => {
       ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
       return;
     }
-    raf = requestAnimationFrame(frame);
+    if (active) raf = requestAnimationFrame(frame);
   }
 
   window.addEventListener('resize', () => { resize(); if (style === 'off') start(); });
@@ -200,6 +203,10 @@ const Bg = (() => {
     // Цвет обложки; null — вернуть фирменный фиолетовый
     setColor(rgb) { target = rgb ? tune(rgb) : [139, 92, 246]; if (style === 'off') { color = [...target]; start(); } },
     setEnergySource(fn) { energyFn = fn; },
+    // Всплеск «жизни» фона: поиск, найденный результат, проверка роликов
+    pulse(a) { kick = Math.max(kick, a); },
+    // Пока окно скрыто или свёрнуто, анимация стоит: иначе она зря грузит видеокарту
+    setActive(v) { active = v; cancelAnimationFrame(raf); if (v && style !== 'off') raf = requestAnimationFrame(frame); },
     tune,
     get style() { return style; },
   };

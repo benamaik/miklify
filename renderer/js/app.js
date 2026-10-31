@@ -11,6 +11,7 @@ const S = {
   onlineTab: 'yt',
   oq: { yt: '', music: '', radio: '' }, // запросы на вкладках «Онлайн»
   oRes: {},                     // последние результаты по вкладкам
+  busy: 0,                      // сколько онлайн-запросов выполняется (оживляют фон)
 };
 
 const viewEl = $('#view');
@@ -70,6 +71,7 @@ async function probeYoutubeResults(items, token) {
   try {
     await Yt.probe(todo.map((t) => t.videoId), (done, total, id, result) => {
       if (result === 'ok') S.ytOk.add(id);
+      Bg.pulse(0.55); // фон «вздрагивает» с каждым проверенным роликом
       if (result === 'blocked') { found++; markYtBlocked(todo[done - 1], 150, { quiet: true }); }
       cap.textContent = `Проверяю, что можно проиграть: ${done} / ${total}${found ? ` · недоступно ${found}` : ''}`;
       bar.style.width = (done / total) * 100 + '%';
@@ -78,6 +80,7 @@ async function probeYoutubeResults(items, token) {
     // плеер для проверки не загрузился (нет сети) — показываем результаты как есть
   } finally {
     Yt.showProbe(false);
+    Yt.releaseProbe();
     bar.style.width = '0';
   }
   if (found && !cancelled()) runOnlineSearch(); // перерисовать список без недоступных
@@ -290,12 +293,17 @@ async function runOnlineSearch() {
 
   const token = (S.oToken = (S.oToken || 0) + 1); // ответ на устаревший запрос игнорируем
   let items = [], error = null;
+  S.busy++;            // пока идёт поиск, фон оживает
+  Bg.pulse(0.9);
   try {
     items = tab === 'yt' ? await api.youtubeSearch(q, ytRegion())
       : tab === 'music' ? await api.jamendoSearch(q) : await api.radioSearch(q);
   } catch (e) {
     error = cleanErr(e);
+  } finally {
+    S.busy--;
   }
+  Bg.pulse(0.8);       // результаты пришли
   if (token !== S.oToken) return;
   for (const t of items) S.online.set(t.id, t);
   S.oRes[tab] = { q, items, error };
@@ -825,7 +833,15 @@ async function boot() {
 
   document.documentElement.dataset.theme = settings.theme || 'dark';
   Bg.init({ style: settings.bg || 'waves', light: settings.theme === 'light' });
-  Bg.setEnergySource(() => (S.set.bgReact === false ? 0 : Player.energy()));
+  // Энергия фона: у своей музыки и радио — настоящий звук; у YouTube звук недоступен (плеер из другого сайта),
+  // поэтому фон просто «дышит», пока ролик играет; поиск и проверка результатов тоже оживляют фон.
+  Bg.setEnergySource(() => {
+    if (S.set.bgReact === false) return 0;
+    const now = performance.now();
+    let e = Player.ytActive && Player.playing ? 0.3 + 0.12 * Math.sin(now / 520) + 0.08 * Math.sin(now / 190) : Player.energy();
+    if (S.busy > 0) e = Math.max(e, 0.55 + 0.2 * Math.sin(now / 170));
+    return e;
+  });
 
   bindEvents();
   syncSettings();
@@ -855,7 +871,7 @@ async function boot() {
     UI.toast(`Библиотека: ${list.length} ${plural(list.length, 'трек', 'трека', 'треков')}`);
   });
 
-  api.on('window:visible', (v) => Player.setWindowVisible(v));
+  api.on('window:visible', (v) => { Player.setWindowVisible(v); Bg.setActive(v); });
   refreshYoutubeData();
 
   api.on('recognize:progress', showRecognizeProgress);

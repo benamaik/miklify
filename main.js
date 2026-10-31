@@ -100,6 +100,7 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       backgroundThrottling: false, // музыка не должна «засыпать» в свёрнутом окне
+      spellcheck: false,           // проверка орфографии не нужна и занимает память
     },
   });
   win.removeMenu();

@@ -243,6 +243,7 @@ const Player = (() => {
     get shuffle() { return shuffle; },
     get repeat() { return repeat; },
     get playing() { return ytMode ? yt.playing : !audio.paused && !pausing; },
+    get ytActive() { return ytMode; },
     get currentTime() { return ytMode ? yt.t : audio.currentTime; },
     get duration() { return ytMode ? yt.d : audio.duration; },
     current,
