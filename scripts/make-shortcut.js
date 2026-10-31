@@ -1,4 +1,4 @@
-// Создаёт ярлыки «Miklify» на рабочем столе и в папке проекта.
+// Создаёт ярлыки «Miklify» в меню «Пуск» (чтобы приложение находилось поиском Windows), на рабочем столе и в папке проекта.
 // Ярлык запускает Miklify.exe (брендированный Electron) напрямую — без консоли.
 const { execFileSync } = require('child_process');
 const path = require('path');
@@ -12,7 +12,7 @@ const q = (s) => `'${s.replace(/'/g, "''")}'`; // строка для PowerShell
 
 const ps = `
 $sh = New-Object -ComObject WScript.Shell
-foreach ($dir in @([Environment]::GetFolderPath('Desktop'), ${q(root)})) {
+foreach ($dir in @([Environment]::GetFolderPath('Programs'), [Environment]::GetFolderPath('Desktop'), ${q(root)})) {
   $lnk = $sh.CreateShortcut((Join-Path $dir 'Miklify.lnk'))
   $lnk.TargetPath = ${q(electron)}
   $lnk.Arguments = '"' + ${q(root)} + '"'
