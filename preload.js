@@ -23,6 +23,9 @@ contextBridge.exposeInMainWorld('api', {
   ytPort: () => ipcRenderer.invoke('yt:port'),
   radioClick: (uuid) => ipcRenderer.send('radio:click', uuid),
   download: (track) => ipcRenderer.invoke('online:download', track),
+  sharePick: () => ipcRenderer.invoke('share:pick'),
+  shareRead: (p, offset, len) => ipcRenderer.invoke('share:read', p, offset, len),
+  shareSave: (name, bytes) => ipcRenderer.invoke('share:save', name, bytes),
   openUrl: (url) => ipcRenderer.invoke('open:url', url),
   on: (channel, cb) => {
     if (EVENTS.has(channel)) ipcRenderer.on(channel, (_e, ...args) => cb(...args));

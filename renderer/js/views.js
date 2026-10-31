@@ -135,6 +135,35 @@ const Views = {
       <div id="oresults"><div class="empty-sm">Загрузка…</div></div>`;
   },
 
+  share() {
+    const copy = (id) => `<button class="btn ghost" data-act="shareCopy" data-arg="${id}">${icon('copy', 16)} Скопировать</button>`;
+    return `<div class="lib-head"><div><h1>Обмен</h1>
+        <div class="meta">Отправьте трек другу напрямую: файл идёт от компьютера к компьютеру, никуда не загружается</div></div></div>
+      <div class="share-grid">
+        <section class="set-sec"><h2>Отправить</h2>
+          <ol class="share-steps">
+            <li>Выберите трек: <button class="btn ghost" data-act="sharePick">Выбрать файл…</button> <span id="shFile" class="muted">не выбран</span><br>
+              <span class="muted">Или правый клик по своему треку → «Отправить другу»</span></li>
+            <li><button class="btn" data-act="shareOffer">Создать код</button> и отправьте его другу в любом мессенджере
+              <textarea id="shOffer" class="code" readonly placeholder="Здесь появится ваш код"></textarea>${copy('shOffer')}</li>
+            <li>Вставьте ответ друга
+              <textarea id="shAnswerIn" class="code" placeholder="Ответ друга"></textarea>
+              <button class="btn" data-act="shareConnect">Соединить и отправить</button></li>
+          </ol></section>
+        <section class="set-sec"><h2>Получить</h2>
+          <ol class="share-steps">
+            <li>Вставьте код друга
+              <textarea id="shRecvIn" class="code" placeholder="Код друга, начинается с MK1:"></textarea>
+              <button class="btn" data-act="shareAnswer">Создать ответ</button></li>
+            <li>Отправьте ответ другу
+              <textarea id="shRecvOut" class="code" readonly placeholder="Здесь появится ответ"></textarea>${copy('shRecvOut')}</li>
+            <li>Когда друг нажмёт «Соединить», вам предложат принять трек</li>
+          </ol></section>
+      </div>
+      <div class="share-status"><span id="shText">Ожидание</span><div class="bar"><i id="shBar"></i></div></div>
+      <p class="attrib">Отправляйте только то, на что у вас есть права. Для соединения используется публичный сервер Google (STUN): он видит только IP-адреса, файл через него не идёт. Принятый трек сохраняется в «Музыка\\Miklify» и появляется в библиотеке.</p>`;
+  },
+
   // Текст совпадает с PRIVACY.md в корне проекта
   legal() {
     const link = (url, text) => `<a class="ext" data-act="openUrl" data-arg="${url}">${text}</a>`;
@@ -147,6 +176,8 @@ const Views = {
       <p>Поисковые запросы и страна из языка системы уходят в YouTube Data API. Встроенный плеер YouTube загружается с серверов YouTube, может показывать рекламу и сохранять на компьютере файлы cookie и похожие данные.</p>
       <p>Чтобы показывать только ролики, которые можно проиграть, после поиска встроенный плеер YouTube кратковременно загружает каждый результат без воспроизведения (окно с проверкой видно на экране). Проверку можно выключить в настройках. Список роликов, которые плеер отказался играть, хранится на компьютере 30 дней.</p>
       <p>Данные о роликах (название, канал, обложка, длительность) хранятся локально не дольше 30 дней: потом они обновляются или удаляются. Удалить их сразу можно в разделе «Настройки» → «Данные YouTube». Ролики не скачиваются, а пока окно скрыто или свёрнуто, они не играют.</p>
+      <h2>Обмен треками</h2>
+      <p>Раздел «Обмен» отправляет файл напрямую на компьютер друга (WebRTC), на сервер Miklify он не загружается, потому что сервера нет. Коды соединения друзья передают друг другу сами. Для соединения используется публичный сервер STUN компании Google: он видит IP-адреса участников, но не файл. Принятые треки сохраняются в «Музыка\\Miklify\\От друзей». Отправляйте только то, на что у вас есть права.</p>
       <h2>Другие сервисы</h2>
       <p>Интернет-радио (Radio Browser) и его станции, Jamendo, а при запуске распознавания AcoustID и Cover Art Archive получают ваш IP-адрес, запросы и, для распознавания, отпечаток звука. Сами файлы не отправляются. Логотипы станций и обложки загружаются с серверов этих сервисов.</p>
       <h2>Вопросы</h2>

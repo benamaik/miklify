@@ -216,6 +216,7 @@ function render() {
   if (q) q.addEventListener('input', () => { S.q = q.value; $('#results').innerHTML = searchResults(S.q); markPlaying(); });
   if (name === 'settings') bindSettings();
   if (name === 'online') bindOnline();
+  if (name === 'share') Share.refresh();
   syncNav();
   markPlaying();
 }
@@ -388,6 +389,7 @@ function trackMenu(t, x, y) {
     if (t.license) items.push({ label: 'Лицензия (Creative Commons)', fn: () => api.openUrl(t.license) });
   } else {
     items.push({ sep: true },
+      { label: 'Отправить другу…', fn: () => { Share.preselect(t); go('share'); } },
       { label: 'Перейти к исполнителю', fn: () => go('artist', t.artist) },
       { label: 'Перейти к альбому', fn: () => go('album', albumKey(t)) });
   }
@@ -448,8 +450,8 @@ function updateTime() {
 function bindEvents() {
   // боковая панель, навигация
   $$('#nav button').forEach((b) => {
-    const ic = { home: 'home', search: 'search', online: 'globe', library: 'library', artists: 'artist', albums: 'album', playlists: 'playlist', settings: 'settings' }[b.dataset.go];
-    const label = { home: 'Главная', search: 'Поиск', online: 'Онлайн', library: 'Библиотека', artists: 'Исполнители', albums: 'Альбомы', playlists: 'Плейлисты', settings: 'Настройки' }[b.dataset.go];
+    const ic = { home: 'home', search: 'search', online: 'globe', share: 'share', library: 'library', artists: 'artist', albums: 'album', playlists: 'playlist', settings: 'settings' }[b.dataset.go];
+    const label = { home: 'Главная', search: 'Поиск', online: 'Онлайн', share: 'Обмен', library: 'Библиотека', artists: 'Исполнители', albums: 'Альбомы', playlists: 'Плейлисты', settings: 'Настройки' }[b.dataset.go];
     b.innerHTML = `${icon(ic, 22)}<span>${label}</span>`;
   });
   $('#newPl').innerHTML = icon('plus', 18);
@@ -622,6 +624,7 @@ function onViewClick(e) {
 }
 
 async function runAction(act, arg) {
+  if (act.startsWith('share')) return Share.act(act, arg);
   switch (act) {
     case 'addFolders': S.set.folders = await api.addFolders(); break;
     case 'removeFolder': S.set.folders = await api.removeFolder(arg); break;

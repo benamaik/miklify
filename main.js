@@ -1,6 +1,7 @@
 // Основной процесс Electron: окно, трей, медиаклавиши, библиотека.
 const { app, BrowserWindow, Tray, Menu, ipcMain, dialog, globalShortcut, nativeImage, shell, session } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const { Store } = require('./src/store');
 const { scan } = require('./src/scanner');
 const { recognize, applyOverride, fpcalcPath } = require('./src/recognize');
@@ -264,14 +265,72 @@ ipcMain.handle('jamendo:search', (_e, q) => online.jamendoSearch(jamendoKey(), q
 ipcMain.handle('radio:search', (_e, q) => online.radioSearch(q));
 ipcMain.on('radio:click', (_e, uuid) => online.radioClick(uuid));
 
-// Скачанные треки кладём в «Музыка\Miklify» и добавляем эту папку в библиотеку
-ipcMain.handle('online:download', async (_e, track) => {
-  const dir = path.join(app.getPath('music'), 'Miklify');
-  const file = await online.download(track, dir);
+// Папка для скачанных и полученных треков (для проверок можно подменить переменной MIKLIFY_MUSIC_DIR)
+const miklifyMusicDir = () => path.join(process.env.MIKLIFY_MUSIC_DIR || app.getPath('music'), 'Miklify');
+
+// Папка попадает в библиотеку, и запускается сканирование
+function addLibraryFolder(dir) {
   const inLibrary = settings.data.folders.some((f) => (dir + path.sep).toLowerCase().startsWith(path.join(f, path.sep).toLowerCase()));
   if (!inLibrary) settings.set({ folders: [...settings.data.folders, dir] });
   runScan();
-  return { file, folders: settings.data.folders };
+  return settings.data.folders;
+}
+
+// Скачанные треки кладём в «Музыка\Miklify» и добавляем эту папку в библиотеку
+ipcMain.handle('online:download', async (_e, track) => {
+  const dir = miklifyMusicDir();
+  const file = await online.download(track, dir);
+  return { file, folders: addLibraryFolder(dir) };
+});
+
+// ----- обмен треками между друзьями -----
+const SHARE_EXT = new Set(['.mp3', '.flac', '.wav', '.ogg', '.m4a']);
+const SHARE_MAX = 200 * 1024 * 1024;
+const sharePicked = new Set(); // файлы, которые пользователь сам выбрал в окне выбора
+
+// Читать для отправки можно только свою библиотеку или выбранный вручную файл
+const canShare = (p) => sharePicked.has(p) || library.data.tracks.some((t) => t.path === p);
+
+ipcMain.handle('share:pick', async () => {
+  const res = await dialog.showOpenDialog(win, {
+    title: 'Выберите трек для отправки',
+    properties: ['openFile'],
+    filters: [{ name: 'Аудио', extensions: ['mp3', 'flac', 'wav', 'ogg', 'm4a'] }],
+  });
+  if (res.canceled || !res.filePaths[0]) return null;
+  const p = res.filePaths[0];
+  if (!SHARE_EXT.has(path.extname(p).toLowerCase())) return null;
+  const st = await fs.promises.stat(p);
+  if (st.size > SHARE_MAX) throw new Error('Файл больше 200 МБ — слишком большой для отправки');
+  sharePicked.add(p);
+  return { path: p, name: path.basename(p), size: st.size };
+});
+
+ipcMain.handle('share:read', async (_e, p, offset, len) => {
+  if (!canShare(p)) throw new Error('Этот файл нельзя отправлять');
+  const fh = await fs.promises.open(p, 'r');
+  try {
+    const buf = Buffer.alloc(Math.min(Math.max(len | 0, 1), 1024 * 1024));
+    const { bytesRead } = await fh.read(buf, 0, buf.length, Math.max(offset | 0, 0));
+    return new Uint8Array(buf.subarray(0, bytesRead));
+  } finally {
+    await fh.close();
+  }
+});
+
+// Принятый файл: имя приходит от другого человека, поэтому оставляем только безопасное имя аудиофайла
+ipcMain.handle('share:save', async (_e, name, bytes) => {
+  const safe = path.basename(String(name)).replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').trim().slice(0, 120);
+  const ext = path.extname(safe).toLowerCase();
+  if (!safe || !SHARE_EXT.has(ext)) throw new Error('Неподходящий тип файла');
+  const data = Buffer.from(bytes);
+  if (!data.length || data.length > SHARE_MAX) throw new Error('Неподходящий размер файла');
+  const dir = path.join(miklifyMusicDir(), 'От друзей');
+  await fs.promises.mkdir(dir, { recursive: true });
+  let target = path.join(dir, safe);
+  for (let n = 2; fs.existsSync(target); n++) target = path.join(dir, `${path.basename(safe, ext)} (${n})${ext}`);
+  await fs.promises.writeFile(target, data);
+  return { file: target, folders: addLibraryFolder(miklifyMusicDir()) };
 });
 
 ipcMain.handle('open:url', (_e, url) => openExternal(url));
