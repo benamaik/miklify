@@ -154,6 +154,7 @@ function youtubeTrack(item) {
     id: 'yt:' + item.id,
     online: 'youtube',
     videoId: item.id,
+    channelId: sn.channelId || null,
     url: null,
     title: clean || title,
     artist,
@@ -192,16 +193,19 @@ function unusable(item, region, { shorts = true } = {}) {
 const MAX_RESULTS = 30;
 
 // Поиск стоит 100 единиц квоты из 10 000 в день; «популярное» — всего 1
-async function youtubeSearch(key, q, region) {
+async function youtubeSearch(key, q, region, channelId) {
   if (!key) throw new Error('NO_KEY');
   q = (q || '').trim();
   const part = 'snippet,contentDetails,status';
   let ids = [];
   let videos;
-  if (q) {
-    // Берём с запасом: часть роликов отсеется. videoSyndicated оставляет только те, что можно играть вне youtube.com
+  if (q || channelId) {
+    // Берём с запасом: часть роликов отсеется. videoSyndicated оставляет только те, что можно играть вне youtube.com.
+    // Категория «Музыка» отсекает влоги и обзоры; со страницей исполнителя — его самые популярные ролики.
     const found = await ytApi(key, 'search', {
-      part: 'snippet', type: 'video', videoCategoryId: '10', videoEmbeddable: 'true', videoSyndicated: 'true', maxResults: '45', q,
+      part: 'snippet', type: 'video', videoCategoryId: '10', videoEmbeddable: 'true', videoSyndicated: 'true', maxResults: '45',
+      ...(q ? { q } : {}),
+      ...(channelId && /^[\w-]{10,40}$/.test(channelId) ? { channelId, order: 'viewCount' } : {}),
     });
     ids = found.items.map((i) => i.id?.videoId).filter(Boolean);
     if (!ids.length) return [];

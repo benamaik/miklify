@@ -18,7 +18,7 @@ contextBridge.exposeInMainWorld('api', {
   onlineStatus: () => ipcRenderer.invoke('online:status'),
   jamendoSearch: (q) => ipcRenderer.invoke('jamendo:search', q),
   radioSearch: (q) => ipcRenderer.invoke('radio:search', q),
-  youtubeSearch: (q, region) => ipcRenderer.invoke('youtube:search', q, region),
+  youtubeSearch: (q, region, channelId) => ipcRenderer.invoke('youtube:search', q, region, channelId),
   youtubeRefresh: (ids, region) => ipcRenderer.invoke('youtube:refresh', ids, region),
   ytPort: () => ipcRenderer.invoke('yt:port'),
   radioClick: (uuid) => ipcRenderer.send('radio:click', uuid),

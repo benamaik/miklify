@@ -259,7 +259,7 @@ ipcMain.handle('open:acoustid', () => shell.openExternal('https://acoustid.org/n
 const jamendoKey = () => settings.data.jamendoKey || JAMENDO_CLIENT_ID;
 const youtubeKey = () => settings.data.youtubeKey || YOUTUBE_API_KEY;
 ipcMain.handle('online:status', () => ({ jamendo: !!jamendoKey(), youtube: !!youtubeKey() }));
-ipcMain.handle('youtube:search', (_e, q, region) => online.youtubeSearch(youtubeKey(), q, region));
+ipcMain.handle('youtube:search', (_e, q, region, channelId) => online.youtubeSearch(youtubeKey(), q, region, channelId));
 ipcMain.handle('youtube:refresh', (_e, ids, region) => online.youtubeRefresh(youtubeKey(), ids, region));
 ipcMain.handle('yt:port', () => ytserver.start());
 ipcMain.handle('jamendo:search', (_e, q) => online.jamendoSearch(jamendoKey(), q));

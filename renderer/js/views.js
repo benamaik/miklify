@@ -9,7 +9,8 @@ function rowHtml(t, i, o = {}) {
   const cls = (o.queue ? 'row qrow' : 'row') + (unavail ? ' unavail' : '');
   const extra = o.queue ? ` data-qi="${i}" draggable="true"` : '';
   // У онлайн-треков нет локальных страниц исполнителя/альбома — показываем просто текст
-  const artist = t.online ? `<span>${esc(t.artist)}</span>` : `<a data-go="artist" data-arg="${esc(t.artist)}">${esc(t.artist)}</a>`;
+  const artist = t.online === 'youtube' && t.channelId ? `<a data-act="ytArtist" data-arg="${esc(t.id)}" title="Все треки исполнителя">${esc(t.artist)}</a>`
+    : t.online ? `<span>${esc(t.artist)}</span>` : `<a data-go="artist" data-arg="${esc(t.artist)}">${esc(t.artist)}</a>`;
   const album = t.online ? `<span class="ralb">${sourceBadge(t)}${t.online === 'youtube' ? '' : esc(t.album)}</span>`
     : `<a class="ralb" data-go="album" data-arg="${esc(albumKey(t))}">${esc(t.album)}</a>`;
   return `<div class="${cls}" data-id="${t.id}" data-i="${i}"${extra}>
@@ -402,7 +403,10 @@ function onlineResults(tab, q, items, error) {
     if (error) return `<div class="empty-sm">Не удалось загрузить: ${esc(error)}</div>`;
     // Ролики, которые плеер YouTube уже отказался играть, не показываем
     const playable = items.filter((t) => !isYtBlocked(t));
-    return `<h2 class="sec">${q ? 'Результаты' : 'Популярное сейчас'}</h2>`
+    const ch = S.ytChannel;
+    const head = ch ? `<div class="actions"><button class="btn ghost" data-act="ytBack">Назад</button></div><h2 class="sec">${esc(ch.name)} — популярные треки</h2>`
+      : `<h2 class="sec">${q ? 'Результаты' : 'Популярное сейчас'}</h2>`;
+    return head
       + trackList(playable.map((t) => t.id), { online: true, emptyText: `Ничего не найдено по запросу «${esc(q)}»` })
       + `<p class="attrib">Видео воспроизводится встроенным плеером YouTube (с рекламой, если она есть у ролика); эквалайзер на нём не действует. · <a data-act="changeYoutubeKey">Сменить ключ</a> · <a data-go="legal">Условия</a></p>`;
   }

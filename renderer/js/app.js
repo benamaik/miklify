@@ -270,7 +270,7 @@ function bindOnline() {
     onlineTimer = setTimeout(runOnlineSearch, 400);
   });
   input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && S.onlineTab === 'yt') runOnlineSearch();
+    if (e.key === 'Enter' && S.onlineTab === 'yt') { S.ytChannel = null; runOnlineSearch(); }
   });
   runOnlineSearch();
 }
@@ -288,15 +288,16 @@ async function runOnlineSearch() {
     const b = box();
     if (b) { b.innerHTML = onlineResults(tab, q, items, error); markPlaying(); }
   };
+  const chId = tab === 'yt' ? S.ytChannel?.id || null : null; // открыта страница исполнителя
   const cached = S.oRes[tab];
-  if (cached && cached.q === q) { show(cached); return; }
+  if (cached && cached.q === q && (cached.ch || null) === chId) { show(cached); return; }
 
   const token = (S.oToken = (S.oToken || 0) + 1); // ответ на устаревший запрос игнорируем
   let items = [], error = null;
   S.busy++;            // пока идёт поиск, фон оживает
   Bg.pulse(0.9);
   try {
-    items = tab === 'yt' ? await api.youtubeSearch(q, ytRegion())
+    items = tab === 'yt' ? await api.youtubeSearch(q, ytRegion(), chId)
       : tab === 'music' ? await api.jamendoSearch(q) : await api.radioSearch(q);
   } catch (e) {
     error = cleanErr(e);
@@ -306,7 +307,7 @@ async function runOnlineSearch() {
   Bg.pulse(0.8);       // результаты пришли
   if (token !== S.oToken) return;
   for (const t of items) S.online.set(t.id, t);
-  S.oRes[tab] = { q, items, error };
+  S.oRes[tab] = { q, items, error, ch: chId };
   show(S.oRes[tab]);
   if (tab === 'yt' && !error) probeYoutubeResults(items, token);
 }
@@ -643,6 +644,15 @@ async function runAction(act, arg) {
     case 'openUrl': api.openUrl(arg); break;
     case 'onlineTab': S.onlineTab = arg; render(); break;
     case 'radioFav': toggleRadioFav(arg); break;
+    case 'ytArtist': {
+      const t = S.online.get(arg) || trackById(arg);
+      if (!t?.channelId) break;
+      S.ytChannel = { id: t.channelId, name: t.artist };
+      $('#oresults').innerHTML = '<div class="empty-sm">Загрузка…</div>';
+      runOnlineSearch();
+      break;
+    }
+    case 'ytBack': S.ytChannel = null; runOnlineSearch(); break;
     case 'saveJamendoKey': {
       const key = ($('#jmKey')?.value || '').trim();
       if (!key) { UI.toast('Вставьте Client ID'); $('#jmKey')?.focus(); break; }
