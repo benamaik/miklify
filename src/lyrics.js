@@ -47,6 +47,15 @@ async function fetchLrclib({ artist, title, album, duration }) {
   return fromRecord(best);
 }
 
+// Запасной источник без меток времени: нужен, когда LRCLIB недоступен или текста там нет
+async function fetchOvh({ artist, title }) {
+  const res = await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`, { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(10000) });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const text = String((await res.json()).lyrics || '').replaceAll(String.fromCharCode(13), '').trim();
+  return text ? { synced: null, plain: text, source: 'lyrics.ovh' } : null;
+}
+
 function create(dir) {
   const memory = new Map();
   const fileFor = (t) => path.join(dir, crypto.createHash('sha1').update(`${t.artist}|${t.title}`.toLowerCase()).digest('hex') + '.json');
@@ -70,8 +79,14 @@ function create(dir) {
       const cached = JSON.parse(fs.readFileSync(key, 'utf8'));
       if (cached.lyrics || Date.now() - cached.at < MISS_DAYS * 864e5) { memory.set(key, cached.lyrics); return cached.lyrics; }
     } catch { /* кэша нет */ }
-    const lyrics = await fetchLrclib(t); // ошибка сети уходит наверх и в кэш не попадает
-    const result = lyrics && { ...lyrics, source: 'LRCLIB' };
+    let lyrics = null, down = false;
+    try { lyrics = await fetchLrclib(t); } catch { down = true; }
+    let result = lyrics && { ...lyrics, source: 'LRCLIB' };
+    if (!result) {
+      try { result = await fetchOvh(t); } catch { if (down) throw new Error('нет связи с сервисами'); }
+    }
+    // Когда LRCLIB лежал, ничего не запоминаем: позже там может найтись текст с метками времени
+    if (down) return result;
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(key, JSON.stringify({ at: Date.now(), lyrics: result }));
     memory.set(key, result);
